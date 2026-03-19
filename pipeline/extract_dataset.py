@@ -231,6 +231,9 @@ def compute_frame_features(frame_record):
         vertical_up = [0.0, -1.0]
         right_torso_lean_deg = angle_between_vectors(torso_vec, vertical_up)
 
+    knee_angle_diff = safe_abs_diff(left_knee_angle, right_knee_angle)
+    hip_angle_diff = safe_abs_diff(left_hip_angle, right_hip_angle)
+
     return {
         "frame_index": frame_record["frame_index"],
         "timestamp_sec": frame_record["timestamp_sec"],
@@ -241,6 +244,8 @@ def compute_frame_features(frame_record):
         "right_hip_angle": right_hip_angle,
         "left_torso_lean_deg": left_torso_lean_deg,
         "right_torso_lean_deg": right_torso_lean_deg,
+        "knee_angle_diff": knee_angle_diff,
+        "hip_angle_diff": hip_angle_diff,
     }
 
 
@@ -272,6 +277,14 @@ def safe_max(values):
     values = [v for v in values if v is not None]
     return max(values) if values else None
 
+def safe_mean(values):
+    values = [v for v in values if v is not None]
+    return sum(values) / len(values) if values else None
+
+def safe_abs_diff(a, b):
+    if a is None or b is None:
+        return None
+    return abs(a - b)
 
 def value_at_frame(frame_features, target_frame_idx, key):
     """
@@ -293,21 +306,38 @@ def compute_rep_summary(frame_features, rep_info):
     right_hips = [f["right_hip_angle"] for f in frame_features]
     left_lean = [f["left_torso_lean_deg"] for f in frame_features]
     right_lean = [f["right_torso_lean_deg"] for f in frame_features]
+    knee_diffs = [f["knee_angle_diff"] for f in frame_features]
+    hip_diffs = [f["hip_angle_diff"] for f in frame_features]
 
     bottom_frame = rep_info.get("bottom_frame")
 
     summary = {
         "num_frames": len(frame_features),
+
         "min_left_knee_angle": safe_min(left_knees),
         "min_right_knee_angle": safe_min(right_knees),
         "min_left_hip_angle": safe_min(left_hips),
         "min_right_hip_angle": safe_min(right_hips),
+
         "max_left_torso_lean_deg": safe_max(left_lean),
         "max_right_torso_lean_deg": safe_max(right_lean),
+        "max_knee_angle_diff": safe_max(knee_diffs),
+        "max_hip_angle_diff": safe_max(hip_diffs),
+
+        "bottom_knee_angle_diff": value_at_frame(frame_features, bottom_frame, "knee_angle_diff"),
+        "bottom_hip_angle_diff": value_at_frame(frame_features, bottom_frame, "hip_angle_diff"),
+        "start_knee_angle_diff": value_at_frame(frame_features, rep_info["start_frame"], "knee_angle_diff"),
+        "start_hip_angle_diff": value_at_frame(frame_features, rep_info["start_frame"], "hip_angle_diff"),
+        "end_knee_angle_diff": value_at_frame(frame_features, rep_info["end_frame"], "knee_angle_diff"),
+        "end_hip_angle_diff": value_at_frame(frame_features, rep_info["end_frame"], "hip_angle_diff"),
+        "mean_knee_angle_diff": safe_mean(knee_diffs),
+        "mean_hip_angle_diff": safe_mean(hip_diffs),
+
         "bottom_left_knee_angle": value_at_frame(frame_features, bottom_frame, "left_knee_angle"),
         "bottom_right_knee_angle": value_at_frame(frame_features, bottom_frame, "right_knee_angle"),
         "bottom_left_hip_angle": value_at_frame(frame_features, bottom_frame, "left_hip_angle"),
         "bottom_right_hip_angle": value_at_frame(frame_features, bottom_frame, "right_hip_angle"),
+
         "start_left_knee_angle": value_at_frame(frame_features, rep_info["start_frame"], "left_knee_angle"),
         "start_right_knee_angle": value_at_frame(frame_features, rep_info["start_frame"], "right_knee_angle"),
         "end_left_knee_angle": value_at_frame(frame_features, rep_info["end_frame"], "left_knee_angle"),

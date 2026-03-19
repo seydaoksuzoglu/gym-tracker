@@ -1,0 +1,99 @@
+{
+  "video_name": "video_006.mp4",
+  "video_path": "video_006.mp4",
+  "exercise": "squat",
+  "fps": 25.0,
+  "total_frames": 709,
+  "reps": [
+    {
+      "rep_id": 1,
+      "start_frame": 22,
+      "bottom_frame": 40,
+      "end_frame": 58,
+      "start_sec": 0.88,
+      "bottom_sec": 1.6,
+      "end_sec": 2.32,
+      "labels": {
+        "correct": 0,
+        "half_depth": 1,
+        "knee_error": 1,
+        "incomplete_lockout": 0
+      }
+    },
+    {
+      "rep_id": 2,
+      "start_frame": 323,
+      "bottom_frame": 343,
+      "end_frame": 363,
+      "start_sec": 12.92,
+      "bottom_sec": 13.72,
+      "end_sec": 14.52,
+      "labels": {
+        "correct": 0,
+        "half_depth": 1,
+        "knee_error": 0,
+        "incomplete_lockout": 0
+      }
+    },
+    {
+      "rep_id": 3,
+      "start_frame": 457,
+      "bottom_frame": 469,
+      "end_frame": 483,
+      "start_sec": 18.28,
+      "bottom_sec": 18.76,
+      "end_sec": 19.32,
+      "labels": {
+        "correct": 0,
+        "half_depth": 1,
+        "knee_error": 0,
+        "incomplete_lockout": 0
+      }
+    },
+    {
+      "rep_id": 4,
+      "start_frame": 490,
+      "bottom_frame": 505,
+      "end_frame": 516,
+      "start_sec": 19.6,
+      "bottom_sec": 20.2,
+      "end_sec": 20.64,
+      "labels": {
+        "correct": 0,
+        "half_depth": 1,
+        "knee_error": 0,
+        "incomplete_lockout": 0
+      }
+    },
+    {
+      "rep_id": 5,
+      "start_frame": 601,
+      "bottom_frame": 621,
+      "end_frame": 635,
+      "start_sec": 24.04,
+      "bottom_sec": 24.84,
+      "end_sec": 25.4,
+      "labels": {
+        "correct": 1,
+        "half_depth": 0,
+        "knee_error": 0,
+        "incomplete_lockout": 0
+      }
+    },
+    {
+      "rep_id": 6,
+      "start_frame": 643,
+      "bottom_frame": 660,
+      "end_frame": 676,
+      "start_sec": 25.72,
+      "bottom_sec": 26.4,
+      "end_sec": 27.04,
+      "labels": {
+        "correct": 1,
+        "half_depth": 0,
+        "knee_error": 0,
+        "incomplete_lockout": 0
+      }
+    }
+  ]
+}

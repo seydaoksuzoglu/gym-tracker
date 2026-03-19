@@ -331,8 +331,8 @@ def process_folder(folder_path, output_root):
     print("\nTüm mevcut veriler kaydedildi.")
 
 if __name__ == "__main__":
-    klasor_yolu = r"C:\Users\Seyda\Desktop\Projects\GymTracker\videos\squat"
-    output_root = r"C:\Users\Seyda\Desktop\Projects\GymTracker\video_labels\squat"
+    klasor_yolu = r"C:\Users\Seyda\Desktop\Projects\GymTracker\data\squat\videos"
+    output_root = r"C:\Users\Seyda\Desktop\Projects\GymTracker\data\squat\video_labels"
 
     ensure_dir(klasor_yolu)
     ensure_dir(output_root)
