@@ -1,546 +1,246 @@
-# src/analysis/squat_rules.py
+from dataclasses import dataclass
+from collections import defaultdict
+from typing import List, Optional
 
-from dataclasses import dataclass, field
-from collections import deque
-from typing import Optional, List
-import math
-
-
-# MediaPipe Pose landmark indexleri
-LEFT_SHOULDER = 11
-RIGHT_SHOULDER = 12
-LEFT_HIP = 23
-RIGHT_HIP = 24
-LEFT_KNEE = 25
-RIGHT_KNEE = 26
-LEFT_ANKLE = 27
-RIGHT_ANKLE = 28
+from src.analysis.squat_features import SquatFeatures
+from src.analysis.squat_counter import SquatCounter
 
 
 @dataclass
-class RuleConfig:
-    # smoothing
-    smooth_window: int = 5
+class RuleThreshold:
+    # Genel
+    min_visibility: float = 0.55
+    min_torso_height: float = 0.07
 
-    # rep state machine
-    descend_threshold: float = 145.0
-    up_threshold: float = 160.0
-    min_rom_deg: float = 25.0
-    cooldown_frames: int = 6
+    # View tahmini
+    # frontal_width / torso_height oranı küçükse kişi yanda kabul edilir
+    side_view_ratio_threshold: float = 0.45
 
-    # error thresholds
-    half_depth_threshold: float = 110.0
-    knee_lockout_threshold: float = 165.0
-    hip_lockout_threshold: float = 150.0
-    knee_diff_threshold: float = 18.0
-    hip_diff_threshold: float = 20.0
+    # --------------------------------
+    # Yandan Görünüm Kuralları
+    # --------------------------------
 
-    # debug / robustness
-    min_valid_angle: float = 40.0
-    max_valid_angle: float = 200.0
+    # Topuk kalkma
+    # Not: burada mutlak heel_lift_ratio değil
+    # standing baseline'a göre delta kullanıyoruz.
+    heel_lift_error_delta: float = 0.15
+    heel_lift_persist_frames: int = 6
 
-    forward_lean_threshold: float = 35.0
-    live_depth_margin: float = 8.0
-    live_lockout_margin: float = 10.0
+    # Derinlik
+    partial_depth_knee_angle_deg: float = 125.0
+    partial_depth_persist_frames: int = 3
 
 
-@dataclass
-class RepFeedback:
-    rep_count: int
-    has_error: bool
-    error_labels: List[str] = field(default_factory=list)
+    # --------------------------------
+    # Önden Görünüm Kuralları
+    # --------------------------------
 
-    # debug amaçlı
-    min_knee_angle: Optional[float] = None
-    end_knee_angle: Optional[float] = None
-    end_hip_angle: Optional[float] = None
-    max_knee_angle_diff: Optional[float] = None
-    max_hip_angle_diff: Optional[float] = None
-    max_torso_lean_deg: Optional[float] = None
+    # Dizlerin içe kapanması
+    knee_valgus_warn_offset = 0.08
+    knee_valgus_persist_frames = 5
 
-@dataclass
-class LiveAnalysis:
-    rep_feedback: Optional[RepFeedback] = None
-    live_warnings: List[str] = field(default_factory=list)
-    state: str = "UP"
-    avg_knee_angle: Optional[float] = None
-    avg_hip_angle: Optional[float] = None
-    avg_torso_lean_deg: Optional[float] = None
-
-def vector_sub(a, b):
-    return [a[i] - b[i] for i in range(len(a))]
+    # Sağ-sol diz asimetrisi
+    knee_asymmetry_error = 0.08
+    knee_asymmetry_persist_frames = 5
 
 
-def vector_norm(v):
-    return math.sqrt(sum(x * x for x in v))
+class SquatRules:
+    def __init__(self, thresholds: Optional[RuleThreshold] = None):
+        self.t = thresholds or RuleThreshold()
 
+        # Her kural için kaç frame üst üste aktif olduğunu tutar
+        self._active_counts = defaultdict(int)
 
-def angle_between_vectors(v1, v2):
-    norm1 = vector_norm(v1)
-    norm2 = vector_norm(v2)
+        # Standing anındaki topuk baseline'ı
+        self.standing_heel_baseline = None
 
-    if norm1 == 0 or norm2 == 0:
-        return None
+        # Son view
+        self.prev_view = None
 
-    dot = sum(v1[i] * v2[i] for i in range(len(v1)))
-    cos_theta = dot / (norm1 * norm2)
-    cos_theta = max(-1.0, min(1.0, cos_theta))
+    # -------------------------------------------------
+    # Yardımcılar
+    # -------------------------------------------------
 
-    angle_rad = math.acos(cos_theta)
-    return math.degrees(angle_rad)
+    def _hold(self, rule_name: str, condition: bool) -> int:
+        if condition:
+            self._active_counts[rule_name] += 1
+        else:
+            self._active_counts[rule_name] = 0
+        return self._active_counts[rule_name]
 
+    def _reset_keys(self, keys: List[str]):
+        for k in keys:
+            self._active_counts[k] = 0
 
-def angle_3pt(a, b, c):
-    ba = vector_sub(a, b)
-    bc = vector_sub(c, b)
-    return angle_between_vectors(ba, bc)
+    def _deduplicate(self, items: List[str]) -> List[str]:
+        return list(dict.fromkeys(items))
 
+    def _reset_all_rule_counters(self):
+        for k in list(self._active_counts.keys()):
+            self._active_counts[k] = 0
 
-def safe_mean(values):
-    values = [v for v in values if v is not None]
-    return sum(values) / len(values) if values else None
+    def _update_standing_baselines(self, features: SquatFeatures):
+        if self.standing_heel_baseline is None:
+            self.standing_heel_baseline = features.heel_lift_ratio
+        else:
+            self.standing_heel_baseline = (
+                0.90 * self.standing_heel_baseline
+                + 0.10 * features.heel_lift_ratio
+            )
 
+    def _infer_view(self, features: SquatFeatures) -> str:
+        """
+        Öncelik:
+        1) features.view_label varsa onu kullan
+        2) yoksa shoulder_span / hip_span / torso_height ile side-front tahmini yap
+        """
+        explicit_view = getattr(features, "view_label", None)
+        if explicit_view in ("side", "front"):
+            return explicit_view
 
-def safe_max(values):
-    values = [v for v in values if v is not None]
-    return max(values) if values else None
+        if features.torso_height <= self.t.min_torso_height:
+            return "front"
 
+        frontal_width = (features.shoulder_span + features.hip_span) / 2.0
+        view_ratio = frontal_width / max(features.torso_height, 1e-6)
 
-def safe_abs_diff(a, b):
-    if a is None or b is None:
-        return None
-    return abs(a - b)
+        if view_ratio < self.t.side_view_ratio_threshold:
+            return "side"
+        return "front"
 
+    def _reset_non_relevant_rules(self, phase: str):
+        if phase == "standing":
+            self._reset_keys([
+                "heel_rise_error",
+                "partial_depth",
+                "knee_valgus_error",
+                "knee_asymmetry_error",
+            ])
 
-def clamp_valid_angle(angle, cfg: RuleConfig):
-    if angle is None:
-        return None
-    if angle < cfg.min_valid_angle or angle > cfg.max_valid_angle:
-        return None
-    return angle
+    # -------------------------------------------------
+    # YANDAN KURALLAR
+    # -------------------------------------------------
 
-
-def _lm_to_point(lm, use_z=True):
-    if lm is None:
-        return None
-
-    if use_z and hasattr(lm, "z"):
-        return [float(lm.x), float(lm.y), float(lm.z)]
-    return [float(lm.x), float(lm.y)]
-
-
-def _get_pose_landmarks(result):
-    pose_landmarks_list = getattr(result, "pose_landmarks", None)
-    if not pose_landmarks_list:
-        return None, None
-
-    image_landmarks = pose_landmarks_list[0]
-
-    world_landmarks = None
-    pose_world_landmarks_list = getattr(result, "pose_world_landmarks", None)
-    if pose_world_landmarks_list:
-        world_landmarks = pose_world_landmarks_list[0]
-
-    return image_landmarks, world_landmarks
-
-
-def compute_live_frame_features(result, cfg: RuleConfig):
-    image_landmarks, world_landmarks = _get_pose_landmarks(result)
-    if image_landmarks is None:
-        return None
-
-    def world_or_image(idx):
-        if world_landmarks is not None and len(world_landmarks) > idx:
-            return _lm_to_point(world_landmarks[idx], use_z=True)
-        if len(image_landmarks) > idx:
-            return _lm_to_point(image_landmarks[idx], use_z=False)
-        return None
-
-    def image_only(idx):
-        if len(image_landmarks) > idx:
-            return _lm_to_point(image_landmarks[idx], use_z=False)
-        return None
-
-    l_shoulder = world_or_image(LEFT_SHOULDER)
-    r_shoulder = world_or_image(RIGHT_SHOULDER)
-    l_hip = world_or_image(LEFT_HIP)
-    r_hip = world_or_image(RIGHT_HIP)
-    l_knee = world_or_image(LEFT_KNEE)
-    r_knee = world_or_image(RIGHT_KNEE)
-    l_ankle = world_or_image(LEFT_ANKLE)
-    r_ankle = world_or_image(RIGHT_ANKLE)
-
-    l_shoulder_img = image_only(LEFT_SHOULDER)
-    r_shoulder_img = image_only(RIGHT_SHOULDER)
-    l_hip_img = image_only(LEFT_HIP)
-    r_hip_img = image_only(RIGHT_HIP)
-
-    left_knee_angle = None
-    right_knee_angle = None
-    left_hip_angle = None
-    right_hip_angle = None
-    left_torso_lean_deg = None
-    right_torso_lean_deg = None
-
-    if l_hip and l_knee and l_ankle:
-        left_knee_angle = angle_3pt(l_hip, l_knee, l_ankle)
-
-    if r_hip and r_knee and r_ankle:
-        right_knee_angle = angle_3pt(r_hip, r_knee, r_ankle)
-
-    if l_shoulder and l_hip and l_knee:
-        left_hip_angle = angle_3pt(l_shoulder, l_hip, l_knee)
-
-    if r_shoulder and r_hip and r_knee:
-        right_hip_angle = angle_3pt(r_shoulder, r_hip, r_knee)
-
-    if l_shoulder_img and l_hip_img:
-        torso_vec = vector_sub(l_shoulder_img, l_hip_img)
-        vertical_up = [0.0, -1.0]
-        left_torso_lean_deg = angle_between_vectors(torso_vec, vertical_up)
-
-    if r_shoulder_img and r_hip_img:
-        torso_vec = vector_sub(r_shoulder_img, r_hip_img)
-        vertical_up = [0.0, -1.0]
-        right_torso_lean_deg = angle_between_vectors(torso_vec, vertical_up)
-
-    left_knee_angle = clamp_valid_angle(left_knee_angle, cfg)
-    right_knee_angle = clamp_valid_angle(right_knee_angle, cfg)
-    left_hip_angle = clamp_valid_angle(left_hip_angle, cfg)
-    right_hip_angle = clamp_valid_angle(right_hip_angle, cfg)
-
-    knee_angle_diff = safe_abs_diff(left_knee_angle, right_knee_angle)
-    hip_angle_diff = safe_abs_diff(left_hip_angle, right_hip_angle)
-
-    return {
-        "left_knee_angle": left_knee_angle,
-        "right_knee_angle": right_knee_angle,
-        "left_hip_angle": left_hip_angle,
-        "right_hip_angle": right_hip_angle,
-        "left_torso_lean_deg": left_torso_lean_deg,
-        "right_torso_lean_deg": right_torso_lean_deg,
-        "knee_angle_diff": knee_angle_diff,
-        "hip_angle_diff": hip_angle_diff,
-        "avg_knee_angle": safe_mean([left_knee_angle, right_knee_angle]),
-        "avg_hip_angle": safe_mean([left_hip_angle, right_hip_angle]),
-        "avg_torso_lean_deg": safe_mean([left_torso_lean_deg, right_torso_lean_deg]),
-    }
-
-
-class SquatRuleEngine:
-    def __init__(self, config: RuleConfig | None = None):
-        self.cfg = config or RuleConfig()
-        self.reset()
-
-    def reset(self):
-        self.rep_count = 0
-        self.state = "UP"
-        self.cooldown = 0
-
-        self.knee_hist = deque(maxlen=self.cfg.smooth_window)
-        self.hip_hist = deque(maxlen=self.cfg.smooth_window)
-        self.lean_hist = deque(maxlen=self.cfg.smooth_window)
-
-        self.rep_metrics = None
-        self.prev_knee_smooth = None
-    
-    def _compute_live_warnings(self, features, knee_smooth, hip_smooth, lean_smooth):
+    def _check_heel_rise(self, features: SquatFeatures) -> List[str]:
         warnings = []
 
-        knee_diff = features.get("knee_angle_diff")
-        hip_diff = features.get("hip_angle_diff")
+        if self.standing_heel_baseline is None:
+            return warnings
 
-        # 1) Sağ-sol dengesizlik
-        if (
-            (knee_diff is not None and knee_diff > self.cfg.knee_diff_threshold) or
-            (hip_diff is not None and hip_diff > self.cfg.hip_diff_threshold)
-        ):
-            warnings.append("Dizleri dengeli it")
+        heel_delta = max(0.0, features.heel_lift_ratio - self.standing_heel_baseline)
+        error_active = heel_delta >= self.t.heel_lift_error_delta
 
-        # 2) Fazla öne eğilme
-        if lean_smooth is not None and lean_smooth > self.cfg.forward_lean_threshold:
-            warnings.append("Govdeyi daha dik tut")
+        error_frames = self._hold("heel_rise_error", error_active)
 
-        # 3) Derinlik uyarısı
-        if self.state == "DOWN" and self.rep_metrics is not None and knee_smooth is not None:
-            min_knee = self.rep_metrics.get("min_knee")
+        if error_frames >= self.t.heel_lift_persist_frames:
+            warnings.append("Topuk yerden kalkti")
 
-            coming_up = (
-                self.prev_knee_smooth is not None and
-                knee_smooth > self.prev_knee_smooth + 1.5
-            )
+        return warnings
 
-            shallow_so_far = (
-                min_knee is None or
-                min_knee > (self.cfg.half_depth_threshold + self.cfg.live_depth_margin)
-            )
+    def _check_depth(self, features: SquatFeatures) -> List[str]:
+        warnings = []
 
-            if coming_up and shallow_so_far:
-                warnings.append("Biraz daha derin in")
-
-        # 4) Lockout uyarısı
-        if self.state == "DOWN" and knee_smooth is not None:
-            coming_up = (
-                self.prev_knee_smooth is not None and
-                knee_smooth > self.prev_knee_smooth + 1.0
-            )
-
-            near_top = knee_smooth > (self.cfg.up_threshold - self.cfg.live_lockout_margin)
-
-            knee_not_locked = (
-                knee_smooth is not None and
-                knee_smooth < self.cfg.knee_lockout_threshold
-            )
-
-            hip_not_locked = (
-                hip_smooth is not None and
-                hip_smooth < self.cfg.hip_lockout_threshold
-            )
-
-            if coming_up and near_top and (knee_not_locked or hip_not_locked):
-                warnings.append("Ustte tam kilitle")
-
-        return list(dict.fromkeys(warnings))
-
-    def _start_rep_metrics(self, knee_smooth, hip_smooth, lean_smooth):
-        self.rep_metrics = {
-            "start_knee": knee_smooth,
-            "start_hip": hip_smooth,
-            "min_knee": knee_smooth,
-            "min_hip": hip_smooth,
-            "max_torso_lean": lean_smooth,
-            "max_knee_diff": None,
-            "max_hip_diff": None,
-        }
-
-    def _update_rep_metrics(self, features, knee_smooth, hip_smooth, lean_smooth):
-        if self.rep_metrics is None:
-            return
-
-        if knee_smooth is not None:
-            if self.rep_metrics["min_knee"] is None:
-                self.rep_metrics["min_knee"] = knee_smooth
-            else:
-                self.rep_metrics["min_knee"] = min(self.rep_metrics["min_knee"], knee_smooth)
-
-        if hip_smooth is not None:
-            if self.rep_metrics["min_hip"] is None:
-                self.rep_metrics["min_hip"] = hip_smooth
-            else:
-                self.rep_metrics["min_hip"] = min(self.rep_metrics["min_hip"], hip_smooth)
-
-        if lean_smooth is not None:
-            if self.rep_metrics["max_torso_lean"] is None:
-                self.rep_metrics["max_torso_lean"] = lean_smooth
-            else:
-                self.rep_metrics["max_torso_lean"] = max(self.rep_metrics["max_torso_lean"], lean_smooth)
-
-        knee_diff = features.get("knee_angle_diff")
-        hip_diff = features.get("hip_angle_diff")
-
-        if knee_diff is not None:
-            if self.rep_metrics["max_knee_diff"] is None:
-                self.rep_metrics["max_knee_diff"] = knee_diff
-            else:
-                self.rep_metrics["max_knee_diff"] = max(self.rep_metrics["max_knee_diff"], knee_diff)
-
-        if hip_diff is not None:
-            if self.rep_metrics["max_hip_diff"] is None:
-                self.rep_metrics["max_hip_diff"] = hip_diff
-            else:
-                self.rep_metrics["max_hip_diff"] = max(self.rep_metrics["max_hip_diff"], hip_diff)
-
-    def _finalize_rep(self, knee_smooth, hip_smooth):
-        errors = []
-
-        min_knee = self.rep_metrics["min_knee"]
-        end_knee = knee_smooth
-        end_hip = hip_smooth
-        max_knee_diff = self.rep_metrics["max_knee_diff"]
-        max_hip_diff = self.rep_metrics["max_hip_diff"]
-        max_torso_lean = self.rep_metrics["max_torso_lean"]
-
-        # 1) depth kontrolü
-        if min_knee is None or min_knee > self.cfg.half_depth_threshold:
-            errors.append("half_depth")
-
-        # 2) lockout kontrolü
-        knee_not_locked = end_knee is not None and end_knee < self.cfg.knee_lockout_threshold
-        hip_not_locked = end_hip is not None and end_hip < self.cfg.hip_lockout_threshold
-        if knee_not_locked or hip_not_locked:
-            errors.append("incomplete_lockout")
-
-        # 3) knee_error için ilk basit proxy:
-        # sağ-sol belirgin diz / kalça açısı farkı
-        if (
-            (max_knee_diff is not None and max_knee_diff > self.cfg.knee_diff_threshold) or
-            (max_hip_diff is not None and max_hip_diff > self.cfg.hip_diff_threshold)
-        ):
-            errors.append("knee_error")
-
-        self.rep_count += 1
-
-        feedback = RepFeedback(
-            rep_count=self.rep_count,
-            has_error=len(errors) > 0,
-            error_labels=errors,
-            min_knee_angle=min_knee,
-            end_knee_angle=end_knee,
-            end_hip_angle=end_hip,
-            max_knee_angle_diff=max_knee_diff,
-            max_hip_angle_diff=max_hip_diff,
-            max_torso_lean_deg=max_torso_lean,
+        depth_bad = (
+            (not features.hip_below_knee)
+            and (features.knee_angle >= self.t.partial_depth_knee_angle_deg)
         )
 
-        self.rep_metrics = None
-        return feedback
+        active_frames = self._hold("partial_depth", depth_bad)
 
-    def update(self, result, timestamp_ms=None):
-        features = compute_live_frame_features(result, self.cfg)
-        if features is None:
-            return None
+        if active_frames >= self.t.partial_depth_persist_frames:
+            warnings.append("Yeterli derinlige inilmedi")
 
-        avg_knee = features["avg_knee_angle"]
-        avg_hip = features["avg_hip_angle"]
-        avg_lean = features["avg_torso_lean_deg"]
+        return warnings
 
-        if avg_knee is None:
-            return None
+    # -------------------------------------------------
+    # ÖNDEN KURALLAR
+    # -------------------------------------------------
 
-        self.knee_hist.append(avg_knee)
-        knee_smooth = safe_mean(list(self.knee_hist))
+    def _check_knee_valgus(self, features: SquatFeatures) -> bool:
+        knee_valgus_offset = getattr(features, "knee_valgus_offset", None)
+        if knee_valgus_offset is None:
+            self._hold("knee_valgus_error", False)
+            return False
 
-        if avg_hip is not None:
-            self.hip_hist.append(avg_hip)
-        hip_smooth = safe_mean(list(self.hip_hist))
+        error_active = knee_valgus_offset >= self.t.knee_valgus_warn_offset
+        error_frames = self._hold("knee_valgus_error", error_active)
 
-        if avg_lean is not None:
-            self.lean_hist.append(avg_lean)
-        lean_smooth = safe_mean(list(self.lean_hist))
+        return error_frames >= self.t.knee_valgus_persist_frames
 
-        if self.cooldown > 0:
-            self.cooldown -= 1
+    def _check_knee_asymmetry(self, features: SquatFeatures) -> bool:
+        knee_asymmetry = getattr(features, "knee_asymmetry", None)
+        if knee_asymmetry is None:
+            self._hold("knee_asymmetry_error", False)
+            return False
 
-        # ------------------------------
-        # UP -> DOWN
-        # ------------------------------
-        if self.state == "UP":
-            if self.cooldown == 0 and knee_smooth is not None and knee_smooth < self.cfg.descend_threshold:
-                self.state = "DOWN"
-                self._start_rep_metrics(knee_smooth, hip_smooth, lean_smooth)
-                self._update_rep_metrics(features, knee_smooth, hip_smooth, lean_smooth)
-            return None
+        error_active = knee_asymmetry >= self.t.knee_asymmetry_error
+        error_frames = self._hold("knee_asymmetry_error", error_active)
 
-        # ------------------------------
-        # DOWN durumunda metrik biriktir
-        # ------------------------------
-        if self.state == "DOWN":
-            self._update_rep_metrics(features, knee_smooth, hip_smooth, lean_smooth)
+        return error_frames >= self.t.knee_asymmetry_persist_frames
 
-            # gerçek ROM var mı
-            start_knee = self.rep_metrics["start_knee"]
-            min_knee = self.rep_metrics["min_knee"]
+    # -------------------------------------------------
+    # ANA evaluate
+    # -------------------------------------------------
 
-            rom = None
-            if start_knee is not None and min_knee is not None:
-                rom = start_knee - min_knee
+    def evaluate(self, features: SquatFeatures, counter: SquatCounter) -> List[str]:
+        warnings = []
 
-            # tekrar yukarı çıkıldıysa rep'i kapat
-            if knee_smooth is not None and knee_smooth > self.cfg.up_threshold:
-                self.state = "UP"
-                self.cooldown = self.cfg.cooldown_frames
+        if (not features.valid) or (features.avg_visibility < self.t.min_visibility):
+            return warnings
 
-                # küçük titreşimleri rep saymamak için
-                if rom is None or rom < self.cfg.min_rom_deg:
-                    self.rep_metrics = None
-                    return None
+        if features.torso_height < self.t.min_torso_height:
+            return warnings
 
-                return self._finalize_rep(knee_smooth, hip_smooth)
-    def update_live(self, result, timestamp_ms=None):
-        features = compute_live_frame_features(result, self.cfg)
-        if features is None:
-            return None
+        # DÜZELTME: string değil, fonksiyon çağrısı olmalı
+        view = self._infer_view(features)
 
-        avg_knee = features["avg_knee_angle"]
-        avg_hip = features["avg_hip_angle"]
-        avg_lean = features["avg_torso_lean_deg"]
+        # View değiştiyse sayaçları sıfırla
+        if self.prev_view is not None and self.prev_view != view:
+            self._reset_all_rule_counters()
+        self.prev_view = view
 
-        if avg_knee is None:
-            return None
+        print("RULE VIEW:", view)
+        print("RULE PHASE:", counter.phase)
+        print("RULE WARNINGS:", warnings)
 
-        self.knee_hist.append(avg_knee)
-        knee_smooth = safe_mean(list(self.knee_hist))
+        # Standing baseline güncelle
+        if counter.phase == "standing":
+            self._update_standing_baselines(features)
 
-        if avg_hip is not None:
-            self.hip_hist.append(avg_hip)
-        hip_smooth = safe_mean(list(self.hip_hist))
+        self._reset_non_relevant_rules(counter.phase)
 
-        if avg_lean is not None:
-            self.lean_hist.append(avg_lean)
-        lean_smooth = safe_mean(list(self.lean_hist))
+        # -----------------------------
+        # YANDAN KURALLAR
+        # -----------------------------
+        if view == "side":
+            # Topuk ve derinlik esas olarak dipte anlamlı
+            if counter.phase == "bottom":
+                warnings.extend(self._check_heel_rise(features))
+                warnings.extend(self._check_depth(features))
 
-        if self.cooldown > 0:
-            self.cooldown -= 1
+        # -----------------------------
+        # ÖNDEN KURALLAR
+        # -----------------------------
+        elif view == "front":
+            if counter.phase in ("descent", "bottom", "ascent"):
+                knee_valgus_bad = self._check_knee_valgus(features)
+                knee_asym_bad = self._check_knee_asymmetry(features)
 
-        rep_feedback = None
+                if knee_valgus_bad or knee_asym_bad:
+                    warnings.append("Diz hizasi bozuldu")
 
-        # ------------------------------
-        # UP -> DOWN
-        # ------------------------------
-        if self.state == "UP":
-            if self.cooldown == 0 and knee_smooth is not None and knee_smooth < self.cfg.descend_threshold:
-                self.state = "DOWN"
-                self._start_rep_metrics(knee_smooth, hip_smooth, lean_smooth)
-                self._update_rep_metrics(features, knee_smooth, hip_smooth, lean_smooth)
+        return self._deduplicate(warnings)
 
-        # ------------------------------
-        # DOWN durumunda
-        # ------------------------------
-        elif self.state == "DOWN":
-            self._update_rep_metrics(features, knee_smooth, hip_smooth, lean_smooth)
-
-            start_knee = self.rep_metrics["start_knee"]
-            min_knee = self.rep_metrics["min_knee"]
-
-            rom = None
-            if start_knee is not None and min_knee is not None:
-                rom = start_knee - min_knee
-
-            if knee_smooth is not None and knee_smooth > self.cfg.up_threshold:
-                self.state = "UP"
-                self.cooldown = self.cfg.cooldown_frames
-
-                if rom is None or rom < self.cfg.min_rom_deg:
-                    self.rep_metrics = None
-                else:
-                    rep_feedback = self._finalize_rep(knee_smooth, hip_smooth)
-
-        live_warnings = self._compute_live_warnings(features, knee_smooth, hip_smooth, lean_smooth)
-
-        self.prev_knee_smooth = knee_smooth
-
-        return LiveAnalysis(
-            rep_feedback=rep_feedback,
-            live_warnings=live_warnings,
-            state=self.state,
-            avg_knee_angle=knee_smooth,
-            avg_hip_angle=hip_smooth,
-            avg_torso_lean_deg=lean_smooth,
-        )
-
-        return None
+        
+    
+       
 
 
-_ENGINE = SquatRuleEngine()
 
-def analyze_frame_live(result, timestamp_ms=None):
-    return _ENGINE.update_live(result, timestamp_ms=timestamp_ms)
 
-def analyze_frame(result, timestamp_ms=None):
-    live = _ENGINE.update_live(result, timestamp_ms=timestamp_ms)
-    if live is None:
-        return None
-    return live.rep_feedback
 
-def reset_analyzer():
-    _ENGINE.reset()
+
+
+
+
+
