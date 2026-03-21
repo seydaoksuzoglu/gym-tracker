@@ -224,17 +224,19 @@ class SquatRules:
                 warnings.extend(self._check_depth(features))
             else:
                 self._hold("heel_rise_error", False)
-                self._hold("partia_depth", False)
+                self._hold("partial_depth", False)
 
         # -----------------------------
         # ÖNDEN KURALLAR
         # -----------------------------
+        # elif view == "front":
+        #     if counter.phase == "bottom":
+        #         if self._check_knee_alignment(features):
+        #             warnings.append("Diz hizasi bozuldu")
+        #     else:
+        #         self._hold("knee_alignment_error", False)
         elif view == "front":
-            if counter.phase == "bottom":
-                if self._check_knee_alignment(features):
-                    warnings.append("Diz hizasi bozuldu")
-            else:
-                self._hold("knee_alignment_error", False)
+            self._hold("knee_alignment_error", False)
 
         warnings = self._deduplicate(warnings)
         print("RULE WARNINGS FINAL:", warnings)

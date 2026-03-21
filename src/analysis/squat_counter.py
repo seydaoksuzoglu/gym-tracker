@@ -72,23 +72,25 @@ class SquatCounter:
         self.min_knee_in_rep = min(self.min_knee_in_rep, features.knee_angle)
 
         if self.phase == "standing":
-            if knee_falling and hip_descending and features.knee_angle < 150:
+            # Sadece diz açısına bak, frame-farkı şartı koymuyoruz (gürültüye hassas)
+            if features.knee_angle < 150:
                 event.phase_changed = self._set_phase("descent")
 
         elif self.phase == "descent":
             if features.knee_angle <= self.bottom_knee_angle:
                 self.bottom_reached = True
                 event.phase_changed = self._set_phase("bottom")
-            elif knee_rising and self.min_knee_in_rep < 130:
+            elif features.knee_angle > self.min_knee_in_rep + 5.0 and self.min_knee_in_rep < 130:
                 self.bottom_reached = True
                 event.phase_changed = self._set_phase("ascent")
 
         elif self.phase == "bottom":
-            if knee_rising or hip_ascending:
+            if features.knee_angle > self.min_knee_in_rep + 5.0:
                 event.phase_changed = self._set_phase("ascent")
 
         elif self.phase == "ascent":
-            if features.knee_angle > self.stand_knee_angle and not hip_descending:
+            # hip_descending şartı gürültüyle rep'i tamamlanamaz hale getirebiliyor — kaldırdık
+            if features.knee_angle > self.stand_knee_angle:
                 event.phase_changed = self._set_phase("standing")
 
                 if self.bottom_reached:

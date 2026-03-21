@@ -36,6 +36,11 @@ class LiveSquatAnalyzer:
         # Rep boyunca biriken hata etiketleri
         self.current_rep_errors: Set[str] = set()
 
+        self.standing_kv_baseline = None
+        self.standing_ka_baseline = None
+        self.bottom_kv_values = []
+        self.bottom_ka_values = []
+
         # Debug için kısa geçmiş
         self.knee_hist = deque(maxlen=5)
         self.hip_hist = deque(maxlen=5)
@@ -67,14 +72,6 @@ class LiveSquatAnalyzer:
 
         # Feature çıkar
         features = extract_squat_features(landmarks)
-
-        print("FEATURE VIEW:", features.view_label)
-        print("heel_lift_ratio:", features.heel_lift_ratio)
-        print("knee_valgus_offset:", features.knee_valgus_offset)
-        print("knee_asymmetry:", features.knee_asymmetry)
-        print("hip_below_knee:", features.hip_below_knee)
-        print("phase(before update):", self.counter.phase)
-
         # Düşük güven
         if not features.valid:
             return FrameAnalysis(
@@ -85,6 +82,24 @@ class LiveSquatAnalyzer:
                 avg_hip_angle=None,
                 avg_torso_lean_deg=None,
             )
+        if features.view_label == "front" and self.counter.phase == "standing":
+            if self.standing_kv_baseline is None:
+                self.standing_kv_baseline = features.knee_valgus_offset
+                self.standing_ka_baseline = features.knee_asymmetry
+            else:
+                self.standing_kv_baseline = (
+                    0.9 * self.standing_kv_baseline + 0.1 * features.knee_valgus_offset
+                )
+                self.standing_ka_baseline = (
+                    0.9 * self.standing_ka_baseline + 0.1 * features.knee_asymmetry
+                )
+
+        print("FEATURE VIEW:", features.view_label)
+        print("heel_lift_ratio:", features.heel_lift_ratio)
+        print("knee_valgus_offset:", features.knee_valgus_offset)
+        print("knee_asymmetry:", features.knee_asymmetry)
+        print("hip_below_knee:", features.hip_below_knee)
+        print("phase(before update):", self.counter.phase)
 
         # Debug history
         self.knee_hist.append(features.knee_angle)
@@ -101,12 +116,22 @@ class LiveSquatAnalyzer:
         print("rep_completed:", event.rep_completed)
         # Canlı kurallar
         live_warnings = self.rules.evaluate(features, self.counter)
+        if self.rep_active and curr_phase == "bottom" and features.view_label == "front":
+            kv_delta = max(0.0, features.knee_valgus_offset - (self.standing_kv_baseline or 0.0))
+            ka_delta = max(0.0, features.knee_asymmetry - (self.standing_ka_baseline or 0.0))
+
+            self.bottom_kv_values.append(kv_delta)
+            self.bottom_ka_values.append(ka_delta)
+
+            print("BOTTOM DELTA -> kv:", kv_delta, "ka:", ka_delta)
 
         # Rep başlangıcı: standing -> descent
         if prev_phase == "standing" and curr_phase == "descent":
-            print("NEW REP STARTED -> clearing errors | current rep_count:", self.counter.rep_count)
+            print("NEW REP STARTED -> clearing errors | rep_count:", self.counter.rep_count)
             self.rep_active = True
             self.current_rep_errors.clear()
+            self.bottom_kv_values.clear()
+            self.bottom_ka_values.clear()
 
         # Rep boyunca hataları biriktir
         if self.rep_active and curr_phase in ("descent", "bottom", "ascent"):
@@ -119,6 +144,28 @@ class LiveSquatAnalyzer:
 
         # Rep tamamlandıysa geri bildirim üret
         if event.rep_completed:
+            if self.bottom_kv_values:
+                kv_sorted = sorted(self.bottom_kv_values)
+                kv_max = max(kv_sorted)
+                kv_med = kv_sorted[len(kv_sorted) // 2]
+
+                ka_sorted = sorted(self.bottom_ka_values) if self.bottom_ka_values else []
+                ka_max = max(ka_sorted) if ka_sorted else 0.0
+                ka_med = ka_sorted[len(ka_sorted) // 2] if ka_sorted else 0.0
+
+
+                if ka_max >= 0.10 and (kv_max >= 0.70 or kv_med >= 0.52):
+                    self.current_rep_errors.add("Diz hizasi bozuldu")
+                elif ka_max >= 0.08 and kv_max >= 0.72 and kv_med >= 0.50:
+                    self.current_rep_errors.add("Diz hizasi bozuldu")
+            print(
+                "REP KNEE SUMMARY ->",
+                "kv_max:", kv_max,
+                "kv_med:", kv_med,
+                "ka_max:", ka_max,
+                "ka_med:", ka_med,
+            )
+
             error_labels = sorted(self.current_rep_errors)
             print("REP COMPLETED, ERRORS:", error_labels)
 
@@ -129,6 +176,8 @@ class LiveSquatAnalyzer:
             )
 
             self.current_rep_errors.clear()
+            self.bottom_kv_values.clear()
+            self.bottom_ka_values.clear()
             self.rep_active = False
 
         # Güvenlik amaçlı:
@@ -137,6 +186,8 @@ class LiveSquatAnalyzer:
         elif self.rep_active and prev_phase in ("descent", "bottom", "ascent") and curr_phase == "standing":
             print("REP FAILED -> Tekrar tamamlanamadi")
             self.current_rep_errors.add("Tekrar tamamlanamadi")
+            self.bottom_kv_values.clear()
+            self.bottom_ka_values.clear()
 
             rep_feedback = RepFeedback(
                 rep_count=self.counter.rep_count + 1,
