@@ -124,6 +124,10 @@ def main():
             result = landmarker.detect_for_video(mp_image, ts)
 
             analysis = analyzer.analyze(result, ts)
+            # Yeni rep başladıysa eski rep sonucunu ekrandan kaldır
+            if analysis.state == "descent":
+                last_rep_feedback = None
+                rep_feedback_until_ms = 0
 
             if analysis.live_warnings:
                 last_live_warnings = analysis.live_warnings
@@ -131,7 +135,7 @@ def main():
 
             if analysis.rep_feedback is not None:
                 last_rep_feedback = analysis.rep_feedback
-                rep_feedback_until_ms = ts + 2200
+                rep_feedback_until_ms = ts + 700
 
             # Skeleton çiz
             annotated_rgb = draw_landmarks_on_image(frame_rgb, result)

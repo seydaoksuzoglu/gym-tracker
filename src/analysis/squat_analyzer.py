@@ -95,10 +95,10 @@ class LiveSquatAnalyzer:
                 )
 
         print("FEATURE VIEW:", features.view_label)
-        print("heel_lift_ratio:", features.heel_lift_ratio)
+        #print("heel_lift_ratio:", features.heel_lift_ratio)
         print("knee_valgus_offset:", features.knee_valgus_offset)
-        print("knee_asymmetry:", features.knee_asymmetry)
-        print("hip_below_knee:", features.hip_below_knee)
+        #print("knee_asymmetry:", features.knee_asymmetry)
+        #print("hip_below_knee:", features.hip_below_knee)
         print("phase(before update):", self.counter.phase)
 
         # Debug history
@@ -154,17 +154,20 @@ class LiveSquatAnalyzer:
                 ka_med = ka_sorted[len(ka_sorted) // 2] if ka_sorted else 0.0
 
 
-                if ka_max >= 0.10 and (kv_max >= 0.70 or kv_med >= 0.52):
+                print(
+                    "REP KNEE SUMMARY ->",
+                    "kv_max:", kv_max,
+                    "kv_med:", kv_med,
+                    "ka_max:", ka_max,
+                    "ka_med:", ka_med,
+                )
+
+                # Daha guvenli karar
+                strong_valgus = (kv_med >= 0.53 and kv_max >= 0.70)
+                sustained_combo = (kv_med >= 0.48 and ka_max >= 0.12 and ka_med >= 0.03)
+
+                if strong_valgus or sustained_combo:
                     self.current_rep_errors.add("Diz hizasi bozuldu")
-                elif ka_max >= 0.08 and kv_max >= 0.72 and kv_med >= 0.50:
-                    self.current_rep_errors.add("Diz hizasi bozuldu")
-            print(
-                "REP KNEE SUMMARY ->",
-                "kv_max:", kv_max,
-                "kv_med:", kv_med,
-                "ka_max:", ka_max,
-                "ka_med:", ka_med,
-            )
 
             error_labels = sorted(self.current_rep_errors)
             print("REP COMPLETED, ERRORS:", error_labels)
