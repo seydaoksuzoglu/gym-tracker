@@ -14,7 +14,7 @@ class RuleThreshold:
 
     # View tahmini
     # frontal_width / torso_height oranı küçükse kişi yanda kabul edilir
-    side_view_ratio_threshold: float = 0.45
+    side_view_ratio_threshold: float = 0.25
 
     # --------------------------------
     # Yandan Görünüm Kuralları
@@ -35,13 +35,18 @@ class RuleThreshold:
     # Önden Görünüm Kuralları
     # --------------------------------
 
-    # Dizlerin içe kapanması
-    knee_valgus_warn_offset = 0.08
-    knee_valgus_persist_frames = 5
+    # Tek başına çok güçlü valgus
+    knee_valgus_error_offset: float = 0.70
 
-    # Sağ-sol diz asimetrisi
-    knee_asymmetry_error = 0.08
-    knee_asymmetry_persist_frames = 5
+    # Tek başına çok güçlü asimetri
+    knee_asymmetry_error: float = 0.16
+
+    # İkisi birlikte orta seviyede yüksekse de hata ver
+    knee_alignment_combo_valgus: float = 0.55
+    knee_alignment_combo_asym: float = 0.10
+
+    # Kaç frame üst üste sürerse hata sayılacak
+    knee_alignment_persist_frames: int = 6
 
 
 class SquatRules:
@@ -113,8 +118,7 @@ class SquatRules:
             self._reset_keys([
                 "heel_rise_error",
                 "partial_depth",
-                "knee_valgus_error",
-                "knee_asymmetry_error",
+                "knee_alignment_error",
             ])
 
     # -------------------------------------------------
@@ -131,6 +135,12 @@ class SquatRules:
         error_active = heel_delta >= self.t.heel_lift_error_delta
 
         error_frames = self._hold("heel_rise_error", error_active)
+
+        # Debug için aç
+        print("HEEL baseline:", self.standing_heel_baseline)
+        print("HEEL ratio:", features.heel_lift_ratio)
+        print("HEEL delta:", heel_delta)
+        print("HEEL frames:", error_frames)
 
         if error_frames >= self.t.heel_lift_persist_frames:
             warnings.append("Topuk yerden kalkti")
@@ -156,27 +166,23 @@ class SquatRules:
     # ÖNDEN KURALLAR
     # -------------------------------------------------
 
-    def _check_knee_valgus(self, features: SquatFeatures) -> bool:
-        knee_valgus_offset = getattr(features, "knee_valgus_offset", None)
-        if knee_valgus_offset is None:
-            self._hold("knee_valgus_error", False)
-            return False
+    def _check_knee_alignment(self, features: SquatFeatures) -> bool:
+        kv = getattr(features, "knee_valgus_offset", 0.0)
+        ka = getattr(features, "knee_asymmetry", 0.0)
 
-        error_active = knee_valgus_offset >= self.t.knee_valgus_warn_offset
-        error_frames = self._hold("knee_valgus_error", error_active)
+        strong_valgus = kv >= self.t.knee_valgus_error_offset
+        strong_asym = ka >= self.t.knee_asymmetry_error
+        combo_bad = (
+            kv >= self.t.knee_alignment_combo_valgus
+            and ka >= self.t.knee_alignment_combo_asym
+        )
 
-        return error_frames >= self.t.knee_valgus_persist_frames
+        knee_bad = strong_valgus or strong_asym or combo_bad
+        frames = self._hold("knee_alignment_error", knee_bad)
 
-    def _check_knee_asymmetry(self, features: SquatFeatures) -> bool:
-        knee_asymmetry = getattr(features, "knee_asymmetry", None)
-        if knee_asymmetry is None:
-            self._hold("knee_asymmetry_error", False)
-            return False
+        print("KV:", kv, "KA:", ka, "knee_bad:", knee_bad, "frames:", frames)
 
-        error_active = knee_asymmetry >= self.t.knee_asymmetry_error
-        error_frames = self._hold("knee_asymmetry_error", error_active)
-
-        return error_frames >= self.t.knee_asymmetry_persist_frames
+        return frames >= self.t.knee_alignment_persist_frames
 
     # -------------------------------------------------
     # ANA evaluate
@@ -199,15 +205,14 @@ class SquatRules:
             self._reset_all_rule_counters()
         self.prev_view = view
 
-        print("RULE VIEW:", view)
-        print("RULE PHASE:", counter.phase)
-        print("RULE WARNINGS:", warnings)
-
         # Standing baseline güncelle
-        if counter.phase == "standing":
+        if counter.phase == "standing" and features.knee_angle > 160:
             self._update_standing_baselines(features)
 
         self._reset_non_relevant_rules(counter.phase)
+
+        print("RULE VIEW:", view)
+        print("RULE PHASE:", counter.phase)
 
         # -----------------------------
         # YANDAN KURALLAR
@@ -217,19 +222,23 @@ class SquatRules:
             if counter.phase == "bottom":
                 warnings.extend(self._check_heel_rise(features))
                 warnings.extend(self._check_depth(features))
+            else:
+                self._hold("heel_rise_error", False)
+                self._hold("partia_depth", False)
 
         # -----------------------------
         # ÖNDEN KURALLAR
         # -----------------------------
         elif view == "front":
-            if counter.phase in ("descent", "bottom", "ascent"):
-                knee_valgus_bad = self._check_knee_valgus(features)
-                knee_asym_bad = self._check_knee_asymmetry(features)
-
-                if knee_valgus_bad or knee_asym_bad:
+            if counter.phase == "bottom":
+                if self._check_knee_alignment(features):
                     warnings.append("Diz hizasi bozuldu")
+            else:
+                self._hold("knee_alignment_error", False)
 
-        return self._deduplicate(warnings)
+        warnings = self._deduplicate(warnings)
+        print("RULE WARNINGS FINAL:", warnings)
+        return warnings
 
         
     

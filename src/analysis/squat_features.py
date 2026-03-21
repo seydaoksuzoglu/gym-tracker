@@ -215,8 +215,11 @@ def extract_squat_features(
     # Diz içe kapanma için kaba 2D ölçü
     # Sol diz içe kapandıkça x olarak sağa yaklaşır
     # Sağ diz içe kapandıkça x olarak sola yaklaşır
-    left_valgus = max(0.0, left_knee[0] - left_ankle[0]) / stance_width
-    right_valgus = max(0.0, right_ankle[0] - right_knee[0]) / stance_width
+    left_foot_center_x = (left_heel[0] + left_foot[0]) / 2.0
+    right_foot_center_x = (right_heel[0] + right_foot[0]) / 2.0
+
+    left_valgus = max(0.0, left_knee[0] - left_foot_center_x) / max(hip_span, 1e-6)
+    right_valgus = max(0.0, right_foot_center_x - right_knee[0]) / max(hip_span, 1e-6)
 
     knee_valgus_offset = max(left_valgus, right_valgus)
 
@@ -233,7 +236,13 @@ def extract_squat_features(
     frontal_width = (shoulder_span + hip_span) / 2.0
     view_ratio = frontal_width / max(torso_height, 1e-6)
     view_label = "side" if view_ratio < side_view_ratio_threshold else "front"
-    
+
+    print("shoulder_span:", shoulder_span)
+    print("hip_span:", hip_span)
+    print("torso_height:", torso_height)
+    print("view_ratio:", view_ratio)
+    print("view_label:", view_label)
+
     if view_label != "front":
         knee_valgus_offset = 0.0
         valgus_side = "none"

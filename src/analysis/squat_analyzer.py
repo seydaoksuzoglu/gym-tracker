@@ -97,24 +97,30 @@ class LiveSquatAnalyzer:
         event = self.counter.update(features)
         curr_phase = self.counter.phase
 
+        print("phase(after update):", curr_phase)
+        print("rep_completed:", event.rep_completed)
         # Canlı kurallar
         live_warnings = self.rules.evaluate(features, self.counter)
 
         # Rep başlangıcı: standing -> descent
         if prev_phase == "standing" and curr_phase == "descent":
+            print("NEW REP STARTED -> clearing errors | current rep_count:", self.counter.rep_count)
             self.rep_active = True
             self.current_rep_errors.clear()
 
         # Rep boyunca hataları biriktir
         if self.rep_active and curr_phase in ("descent", "bottom", "ascent"):
             for w in live_warnings:
+                print("ADD REP ERROR:", w, "phase:", curr_phase)
                 self.current_rep_errors.add(w)
+        print("CURRENT REP ERRORS:", sorted(self.current_rep_errors))
 
         rep_feedback = None
 
         # Rep tamamlandıysa geri bildirim üret
         if event.rep_completed:
             error_labels = sorted(self.current_rep_errors)
+            print("REP COMPLETED, ERRORS:", error_labels)
 
             rep_feedback = RepFeedback(
                 rep_count=self.counter.rep_count,
@@ -129,6 +135,7 @@ class LiveSquatAnalyzer:
         # Herhangi bir şekilde standing'e dönüldü ama rep tamamlanmadıysa
         # bunu "Tekrar tamamlanamadi" olarak işaretle
         elif self.rep_active and prev_phase in ("descent", "bottom", "ascent") and curr_phase == "standing":
+            print("REP FAILED -> Tekrar tamamlanamadi")
             self.current_rep_errors.add("Tekrar tamamlanamadi")
 
             rep_feedback = RepFeedback(
