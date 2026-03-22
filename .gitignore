@@ -3,3 +3,4 @@ __pycache__/
 outputs/
 *.mp4
 data/squat/videos/
+yolo*.pt
