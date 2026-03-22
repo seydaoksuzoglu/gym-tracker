@@ -3,6 +3,8 @@ from collections import deque
 from typing import List, Optional, Set
 
 from src.analysis.squat_features import extract_squat_features
+from src.pose_backends.yolo26_adapter import extract_yolo_pose_frame
+from src.analysis.squat_features_yolo import extract_squat_features_yolo
 from src.analysis.squat_counter import SquatCounter
 from src.analysis.squat_rules import SquatRules
 
@@ -50,6 +52,7 @@ class LiveSquatAnalyzer:
         if not values:
             return None
         return sum(values) / len(values)
+    
 
     def analyze(self, result, ts) -> Optional[FrameAnalysis]:
         """
@@ -69,9 +72,27 @@ class LiveSquatAnalyzer:
 
         # num_poses=1 olduğu için ilk pozu al
         landmarks = result.pose_landmarks[0]
-
         # Feature çıkar
         features = extract_squat_features(landmarks)
+        return self._analyze_from_features(features, ts)
+
+    def analyze_yolo(self, yolo_result, ts) -> Optional[FrameAnalysis]:
+        yolo_frame = extract_yolo_pose_frame(yolo_result)
+
+        if yolo_frame is None:
+            return FrameAnalysis(
+                state="no_pose",
+                live_warnings=[],
+                rep_feedback=None,
+                avg_knee_angle=None,
+                avg_hip_angle=None,
+                avg_torso_lean_deg=None,
+            )
+
+        features = extract_squat_features_yolo(yolo_frame)
+        return self._analyze_from_features(features, ts)
+
+    def _analyze_from_features(self, features, ts) -> Optional[FrameAnalysis]:
         # Düşük güven
         if not features.valid:
             return FrameAnalysis(
@@ -94,12 +115,12 @@ class LiveSquatAnalyzer:
                     0.9 * self.standing_ka_baseline + 0.1 * features.knee_asymmetry
                 )
 
-        print("FEATURE VIEW:", features.view_label)
+        #print("FEATURE VIEW:", features.view_label)
         #print("heel_lift_ratio:", features.heel_lift_ratio)
-        print("knee_valgus_offset:", features.knee_valgus_offset)
+        #print("knee_valgus_offset:", features.knee_valgus_offset)
         #print("knee_asymmetry:", features.knee_asymmetry)
         #print("hip_below_knee:", features.hip_below_knee)
-        print("phase(before update):", self.counter.phase)
+        #print("phase(before update):", self.counter.phase)
 
         # Debug history
         self.knee_hist.append(features.knee_angle)
@@ -112,8 +133,8 @@ class LiveSquatAnalyzer:
         event = self.counter.update(features)
         curr_phase = self.counter.phase
 
-        print("phase(after update):", curr_phase)
-        print("rep_completed:", event.rep_completed)
+        #print("phase(after update):", curr_phase)
+        #print("rep_completed:", event.rep_completed)
         # Canlı kurallar
         live_warnings = self.rules.evaluate(features, self.counter)
         if self.rep_active and curr_phase == "bottom" and features.view_label == "front":
@@ -127,7 +148,7 @@ class LiveSquatAnalyzer:
 
         # Rep başlangıcı: standing -> descent
         if prev_phase == "standing" and curr_phase == "descent":
-            print("NEW REP STARTED -> clearing errors | rep_count:", self.counter.rep_count)
+            #print("NEW REP STARTED -> clearing errors | rep_count:", self.counter.rep_count)
             self.rep_active = True
             self.current_rep_errors.clear()
             self.bottom_kv_values.clear()
@@ -136,9 +157,9 @@ class LiveSquatAnalyzer:
         # Rep boyunca hataları biriktir
         if self.rep_active and curr_phase in ("descent", "bottom", "ascent"):
             for w in live_warnings:
-                print("ADD REP ERROR:", w, "phase:", curr_phase)
+                #print("ADD REP ERROR:", w, "phase:", curr_phase)
                 self.current_rep_errors.add(w)
-        print("CURRENT REP ERRORS:", sorted(self.current_rep_errors))
+        #print("CURRENT REP ERRORS:", sorted(self.current_rep_errors))
 
         rep_feedback = None
 
