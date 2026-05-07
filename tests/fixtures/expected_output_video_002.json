@@ -1,0 +1,48 @@
+{
+  "video": "video_002.mp4",
+  "total_reps": 1,
+  "reps": [
+    {
+      "rep_count": 1,
+      "ts_ms": 4133,
+      "has_error": true,
+      "error_labels": [
+        "Topuk yerden kalkti"
+      ]
+    }
+  ],
+  "phase_transitions": [
+    {
+      "ts_ms": 1,
+      "state": "standing"
+    },
+    {
+      "ts_ms": 366,
+      "state": "descent"
+    },
+    {
+      "ts_ms": 566,
+      "state": "bottom"
+    },
+    {
+      "ts_ms": 1833,
+      "state": "ascent"
+    },
+    {
+      "ts_ms": 4133,
+      "state": "standing"
+    },
+    {
+      "ts_ms": 5166,
+      "state": "descent"
+    },
+    {
+      "ts_ms": 5500,
+      "state": "bottom"
+    },
+    {
+      "ts_ms": 6933,
+      "state": "ascent"
+    }
+  ]
+}
