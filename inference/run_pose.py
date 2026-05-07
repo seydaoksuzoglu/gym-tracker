@@ -15,7 +15,7 @@ from ultralytics import YOLO
 from src.pose_backends.yolo26_adapter import extract_yolo_pose_frame
 from src.analysis.squat_features_yolo import extract_squat_features_yolo
 
-from src.analysis.squat_analyzer import LiveSquatAnalyzer
+from src.analysis.squat.squat_analyzer import LiveSquatAnalyzer
 from src.vis.skeleton_drawer import (
     draw_landmarks_on_image_mediapipe,
     draw_landmarks_on_image_yolo,

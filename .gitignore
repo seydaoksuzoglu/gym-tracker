@@ -5,4 +5,3 @@ outputs/
 data/squat/videos/
 yolo*.pt
 models/
-!models/README.md

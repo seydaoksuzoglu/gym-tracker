@@ -1,0 +1,69 @@
+{
+  "video_name": "video_003.mp4",
+  "video_path": "video_003.mp4",
+  "exercise": "squat",
+  "fps": 25.0,
+  "total_frames": 510,
+  "reps": [
+    {
+      "rep_id": 1,
+      "start_frame": 0,
+      "bottom_frame": 7,
+      "end_frame": 24,
+      "start_sec": 0.0,
+      "bottom_sec": 0.28,
+      "end_sec": 0.96,
+      "labels": {
+        "correct": 0,
+        "half_depth": 1,
+        "knee_error": 1,
+        "incomplete_lockout": 0
+      }
+    },
+    {
+      "rep_id": 2,
+      "start_frame": 25,
+      "bottom_frame": 41,
+      "end_frame": 68,
+      "start_sec": 1.0,
+      "bottom_sec": 1.64,
+      "end_sec": 2.72,
+      "labels": {
+        "correct": 0,
+        "half_depth": 0,
+        "knee_error": 1,
+        "incomplete_lockout": 0
+      }
+    },
+    {
+      "rep_id": 3,
+      "start_frame": 325,
+      "bottom_frame": 345,
+      "end_frame": 363,
+      "start_sec": 13.0,
+      "bottom_sec": 13.8,
+      "end_sec": 14.52,
+      "labels": {
+        "correct": 0,
+        "half_depth": 1,
+        "knee_error": 0,
+        "incomplete_lockout": 0
+      }
+    },
+    {
+      "rep_id": 4,
+      "start_frame": 432,
+      "bottom_frame": 453,
+      "end_frame": 476,
+      "start_sec": 17.28,
+      "bottom_sec": 18.12,
+      "end_sec": 19.04,
+      "labels": {
+        "correct": 1,
+        "half_depth": 0,
+        "knee_error": 0,
+        "incomplete_lockout": 0
+      }
+    }
+  ]
+}
