@@ -13,7 +13,7 @@ from mediapipe.tasks.python import vision
 
 from ultralytics import YOLO
 from src.pose_backends.yolo26_adapter import extract_yolo_pose_frame
-from src.analysis.squat_features_yolo import extract_squat_features_yolo
+from src.analysis.squat.squat_features_yolo import extract_squat_features_yolo
 
 from src.analysis.squat.squat_analyzer import LiveSquatAnalyzer
 from src.vis.skeleton_drawer import (
