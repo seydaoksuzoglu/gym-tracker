@@ -1,21 +1,5 @@
-import math
+from src.common.geometry import angle 
 from src.analysis.squat.squat_features import SquatFeatures
-
-
-def _angle(a, b, c):
-    ba = (a[0] - b[0], a[1] - b[1])
-    bc = (c[0] - b[0], c[1] - b[1])
-
-    dot = ba[0] * bc[0] + ba[1] * bc[1]
-    mag_ba = math.sqrt(ba[0] ** 2 + ba[1] ** 2)
-    mag_bc = math.sqrt(bc[0] ** 2 + bc[1] ** 2)
-
-    if mag_ba == 0 or mag_bc == 0:
-        return 0.0
-
-    cos_value = dot / (mag_ba * mag_bc)
-    cos_value = max(-1.0, min(1.0, cos_value))
-    return math.degrees(math.acos(cos_value))
 
 
 def extract_squat_features_yolo(yf) -> SquatFeatures:
@@ -43,11 +27,11 @@ def extract_squat_features_yolo(yf) -> SquatFeatures:
         shoulder, hip, knee, ankle = rs, rh, rk, ra
         avg_vis = right_conf
 
-    left_knee_angle = _angle(lh, lk, la)
-    right_knee_angle = _angle(rh, rk, ra)
+    left_knee_angle = angle(lh, lk, la)
+    right_knee_angle = angle(rh, rk, ra)
 
-    left_hip_angle = _angle(ls, lh, lk)
-    right_hip_angle = _angle(rs, rh, rk)
+    left_hip_angle = angle(ls, lh, lk)
+    right_hip_angle = angle(rs, rh, rk)
 
     knee_angle = left_knee_angle if side == "left" else right_knee_angle
     hip_angle = left_hip_angle if side == "left" else right_hip_angle
@@ -78,6 +62,7 @@ def extract_squat_features_yolo(yf) -> SquatFeatures:
     view_ratio = frontal_width / max(torso_height, 1e-6)
     view_label = "side" if view_ratio < 0.25 else "front"
 
+    
     return SquatFeatures(
         side=side,
         knee_angle=knee_angle,
@@ -88,7 +73,7 @@ def extract_squat_features_yolo(yf) -> SquatFeatures:
         knee_y=knee[1],
         ankle_y=ankle[1],
         foot_length=1.0,
-        heel_lift_ratio=0.0,   # YOLO26 COCO17'de heel yok
+        heel_lift_ratio=0.0,
         shoulder_span=shoulder_span,
         hip_span=hip_span,
         torso_height=torso_height,

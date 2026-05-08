@@ -2,6 +2,12 @@ import math
 from dataclasses import dataclass
 from typing import Tuple
 
+from src.common.geometry import (
+    angle,
+    angle_to_vertical,
+    distance,
+    choose_best_side,
+)
 
 # -----------------------------------------------------------
 # MediaPipe Pose landmark indexleri
@@ -75,56 +81,6 @@ def _visibility(landmarks, idx: int) -> float:
     lm = landmarks[idx]
     return float(getattr(lm, "visibility", 1.0))
 
-
-def _distance(a: Tuple[float, float], b: Tuple[float, float]) -> float:
-    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
-
-
-def _angle(a: Tuple[float, float], b: Tuple[float, float], c: Tuple[float, float]) -> float:
-    ba = (a[0] - b[0], a[1] - b[1])
-    bc = (c[0] - b[0], c[1] - b[1])
-
-    dot = ba[0] * bc[0] + ba[1] * bc[1]
-    mag_ba = math.sqrt(ba[0] ** 2 + ba[1] ** 2)
-    mag_bc = math.sqrt(bc[0] ** 2 + bc[1] ** 2)
-
-    if mag_ba == 0 or mag_bc == 0:
-        return 0.0
-
-    cos_value = dot / (mag_ba * mag_bc)
-    cos_value = max(-1.0, min(1.0, cos_value))
-    return math.degrees(math.acos(cos_value))
-
-
-def _angle_to_vertical(top: Tuple[float, float], bottom: Tuple[float, float]) -> float:
-    v = (top[0] - bottom[0], top[1] - bottom[1])
-    vertical = (0.0, -1.0)
-
-    dot = v[0] * vertical[0] + v[1] * vertical[1]
-    mag_v = math.sqrt(v[0] ** 2 + v[1] ** 2)
-
-    if mag_v == 0:
-        return 0.0
-
-    cos_value = dot / mag_v
-    cos_value = max(-1.0, min(1.0, cos_value))
-    return math.degrees(math.acos(cos_value))
-
-
-def _average_visibility(landmarks, side_map: dict) -> float:
-    vis_values = [_visibility(landmarks, idx) for idx in side_map.values()]
-    return sum(vis_values) / len(vis_values)
-
-
-def _choose_best_side(landmarks) -> Tuple[str, dict, float]:
-    left_vis = _average_visibility(landmarks, LEFT)
-    right_vis = _average_visibility(landmarks, RIGHT)
-
-    if left_vis >= right_vis:
-        return "left", LEFT, left_vis
-    return "right", RIGHT, right_vis
-
-
 # -----------------------------------------------------------
 # Ana feature çıkarma fonksiyonu
 # -----------------------------------------------------------
@@ -138,7 +94,7 @@ def extract_squat_features(
     """
 
     # Hangi taraf daha görünür
-    side_name, side_map, avg_vis = _choose_best_side(landmarks)
+    side_name, side_map, avg_vis = choose_best_side(landmarks, LEFT, RIGHT)
 
     # Seçilen taraf
     shoulder = _point(landmarks, side_map["shoulder"])
@@ -165,20 +121,20 @@ def extract_squat_features(
     right_foot = _point(landmarks, RIGHT["foot_index"])
 
     # Ana açılar
-    knee_angle = _angle(hip, knee, ankle)
-    hip_angle = _angle(shoulder, hip, knee)
-    trunk_angle = _angle_to_vertical(shoulder, hip)
-    shin_angle = _angle_to_vertical(knee, ankle)
+    knee_angle = angle(hip, knee, ankle)
+    hip_angle = angle(shoulder, hip, knee)
+    trunk_angle = angle_to_vertical(shoulder, hip)
+    shin_angle = angle_to_vertical(knee, ankle)
 
     # Sol/sağ açılar
-    left_knee_angle = _angle(left_hip, left_knee, left_ankle)
-    right_knee_angle = _angle(right_hip, right_knee, right_ankle)
+    left_knee_angle = angle(left_hip, left_knee, left_ankle)
+    right_knee_angle = angle(right_hip, right_knee, right_ankle)
 
-    left_hip_angle = _angle(left_shoulder, left_hip, left_knee)
-    right_hip_angle = _angle(right_shoulder, right_hip, right_knee)
+    left_hip_angle = angle(left_shoulder, left_hip, left_knee)
+    right_hip_angle = angle(right_shoulder, right_hip, right_knee)
 
     # Uzunluklar
-    foot_length = max(_distance(heel, foot), 1e-6)
+    foot_length = max(distance(heel, foot), 1e-6)
 
     # Topuk kalkma oranı
     heel_lift_ratio = max(0.0, foot[1] - heel[1]) / foot_length
