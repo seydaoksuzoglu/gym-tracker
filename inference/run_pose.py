@@ -11,10 +11,6 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-from ultralytics import YOLO
-from src.pose_backends.yolo26_adapter import extract_yolo_pose_frame
-from src.analysis.squat.squat_features_yolo import extract_squat_features_yolo
-
 from src.analysis.squat.squat_analyzer import LiveSquatAnalyzer
 from src.vis.skeleton_drawer import (
     draw_landmarks_on_image_mediapipe,
@@ -23,6 +19,19 @@ from src.vis.skeleton_drawer import (
 from src.sources.webcam import webcam_frames
 from src.sources.video import video_frames
 
+# Repo kökünü tek noktada bul
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_MODEL_PATH = REPO_ROOT / "models" / "pose_landmarker_full.task"
+
+def make_analyzer(exercise: str):
+    """Egzersiz tipine göre uygun analyzer'ı döndürür."""
+    if exercise == "squat":
+        return LiveSquatAnalyzer()
+    if exercise == "deadlift":
+        raise NotImplementedError(
+            "Deadlift analyzer henüz implementasyon aşamasında."
+        )
+    raise ValueError(f"Bilinmeyen egzersiz: {exercise}")
 
 def draw_boxed_lines(img, lines, x, y, color, font_scale=0.8, thickness=2, line_gap=30):
     """
@@ -79,11 +88,9 @@ def create_landmarker(model_path: str):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--exercise", choices=["squat", "deadlift"], default="squat")
     parser.add_argument("--mode", choices=["webcam", "video"], required=True)
-    parser.add_argument(
-        "--model",
-        default=r"C:\Users\Seyda\Desktop\Projects\GymTracker\models\pose_landmarker_full.task"
-    )
+    parser.add_argument("--model", default=str(DEFAULT_MODEL_PATH))
     parser.add_argument("--index", type=int, default=0)
     parser.add_argument("--path", type=str, default=None)
     parser.add_argument("--output", type=str, default=None)
@@ -94,31 +101,36 @@ def main():
 
     args = parser.parse_args()
     device = args.device
+
+    # Analyzer factory
+    analyzer = make_analyzer(args.exercise)
+
     landmarker = None
     yolo_model = None
-    analyzer = LiveSquatAnalyzer()
-
+  # YOLO ve squat YOLO feature'ı SADECE yolo26 backend seçildiğinde import et
+    extract_yolo_pose_frame = None
     if args.backend == "mediapipe":
         landmarker = create_landmarker(args.model)
-        
     else:
+        from ultralytics import YOLO
+        from src.pose_backends.yolo26_adapter import (
+            extract_yolo_pose_frame as _extract_yolo,
+        )
+        extract_yolo_pose_frame = _extract_yolo
         yolo_model = YOLO("yolo26m-pose.pt")
 
     writer = None
     output_path = None
-
     frame_count = 0
 
     total_pipeline_time = 0.0
     total_infer_time = 0.0
     total_analysis_time = 0.0
     total_draw_time = 0.0
-
     benchmark_start = None
 
     last_live_warnings = []
     live_warning_until_ms = 0
-
     last_rep_feedback = None
     rep_feedback_until_ms = 0
 
@@ -128,7 +140,6 @@ def main():
 
     source_fps = None
 
-    # Kaynak ayarları
     if args.mode == "webcam":
         frame_iter = webcam_frames(args.index)
         display_wait_ms = 1
@@ -143,7 +154,8 @@ def main():
         frame_iter = video_frames(args.path)
 
     if args.benchmark:
-        benchmark_start = time.perf_counter()    
+        benchmark_start = time.perf_counter()
+
     try:
         for frame_bgr, ts in frame_iter:
             frame_t0 = time.perf_counter()
@@ -159,7 +171,6 @@ def main():
                 analysis_t0 = time.perf_counter()
                 analysis = analyzer.analyze(result, ts)
                 analysis_t1 = time.perf_counter()
-
             else:
                 yolo_results = yolo_model(frame_bgr, device=device, verbose=False)
                 infer_t1 = time.perf_counter()
@@ -168,7 +179,6 @@ def main():
                 analysis = analyzer.analyze_yolo(yolo_results[0], ts)
                 analysis_t1 = time.perf_counter()
 
-            # Yeni rep başladıysa eski rep sonucunu ekrandan kaldır
             if analysis.state == "descent":
                 last_rep_feedback = None
                 rep_feedback_until_ms = 0
@@ -181,37 +191,26 @@ def main():
                 last_rep_feedback = analysis.rep_feedback
                 rep_feedback_until_ms = ts + 700
 
-            # Skeleton çiz
             draw_t0 = time.perf_counter()
-
             if args.backend == "mediapipe":
                 annotated_rgb = draw_landmarks_on_image_mediapipe(frame_rgb, result)
             else:
                 annotated_rgb = draw_landmarks_on_image_yolo(frame_rgb, yolo_results[0])
 
             annotated_bgr = cv2.cvtColor(annotated_rgb, cv2.COLOR_RGB2BGR)
-
             draw_t1 = time.perf_counter()
 
             total_infer_time += (infer_t1 - infer_t0)
             total_analysis_time += (analysis_t1 - analysis_t0)
             total_draw_time += (draw_t1 - draw_t0)
 
-            # Canlı uyarılar
             if ts < live_warning_until_ms and last_live_warnings:
                 lines = [f"UYARI: {w}" for w in last_live_warnings]
                 annotated_bgr = draw_boxed_lines(
-                    annotated_bgr,
-                    lines,
-                    x=10,
-                    y=40,
-                    color=(0, 165, 255),  # turuncu
-                    font_scale=0.8,
-                    thickness=2,
-                    line_gap=32
+                    annotated_bgr, lines, x=10, y=40,
+                    color=(0, 165, 255), font_scale=0.8, thickness=2, line_gap=32,
                 )
 
-            # Rep sonucu
             if ts < rep_feedback_until_ms and last_rep_feedback is not None:
                 if last_rep_feedback.has_error:
                     lines = [f"REP {last_rep_feedback.rep_count} HATALI"]
@@ -222,46 +221,27 @@ def main():
                     color = (0, 255, 0)
 
                 annotated_bgr = draw_boxed_lines(
-                    annotated_bgr,
-                    lines,
-                    x=10,
-                    y=160,
-                    color=color,
-                    font_scale=0.85,
-                    thickness=2,
-                    line_gap=32
+                    annotated_bgr, lines, x=10, y=160,
+                    color=color, font_scale=0.85, thickness=2, line_gap=32,
                 )
 
-            # Anlık rep sayısı ve state
             cv2.putText(
-                annotated_bgr,
-                f"REP: {analyzer.counter.rep_count}",
+                annotated_bgr, f"REP: {analyzer.counter.rep_count}",
                 (10, annotated_bgr.shape[0] - 55),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2,
-                cv2.LINE_AA,
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA,
             )
 
-            # Küçük debug satırı
             knee_txt = "None" if analysis.avg_knee_angle is None else f"{analysis.avg_knee_angle:.1f}"
             hip_txt = "None" if analysis.avg_hip_angle is None else f"{analysis.avg_hip_angle:.1f}"
             lean_txt = "None" if analysis.avg_torso_lean_deg is None else f"{analysis.avg_torso_lean_deg:.1f}"
 
             debug_line = f"STATE={analysis.state} knee={knee_txt} hip={hip_txt} lean={lean_txt}"
             cv2.putText(
-                annotated_bgr,
-                debug_line,
+                annotated_bgr, debug_line,
                 (10, annotated_bgr.shape[0] - 20),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (255, 255, 255),
-                2,
-                cv2.LINE_AA,
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA,
             )
 
-            # Writer
             if writer is None and output_path:
                 h, w = annotated_bgr.shape[:2]
                 fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -277,22 +257,20 @@ def main():
             if not args.benchmark:
                 display_frame = cv2.resize(
                     annotated_bgr,
-                    (int(annotated_bgr.shape[1] * args.scale), int(annotated_bgr.shape[0] * args.scale))
+                    (int(annotated_bgr.shape[1] * args.scale),
+                     int(annotated_bgr.shape[0] * args.scale)),
                 )
-
-                cv2.imshow("Pose Estimation Based Squat Analysis", display_frame)
+                cv2.imshow("Pose Estimation Based Analysis", display_frame)
                 if cv2.waitKey(display_wait_ms) & 0xFF == ord("q"):
                     break
 
     finally:
         if args.benchmark and frame_count > 0:
             total_elapsed = time.perf_counter() - benchmark_start if benchmark_start is not None else total_pipeline_time
-
             avg_pipeline_ms = (total_pipeline_time / frame_count) * 1000.0
             avg_infer_ms = (total_infer_time / frame_count) * 1000.0
             avg_analysis_ms = (total_analysis_time / frame_count) * 1000.0
             avg_draw_ms = (total_draw_time / frame_count) * 1000.0
-
             pipeline_fps = frame_count / total_pipeline_time if total_pipeline_time > 0 else 0.0
             wall_fps = frame_count / total_elapsed if total_elapsed > 0 else 0.0
 
@@ -314,12 +292,10 @@ def main():
 
         if writer:
             writer.release()
-
         if landmarker is not None:
             landmarker.close()
         cv2.destroyAllWindows()
 
-        # Video modu bittikten sonra isterse son frame'i görmek için kısa bekleme yapılabilir
         if args.mode == "video" and not args.benchmark:
             cv2.waitKey(0)
 
