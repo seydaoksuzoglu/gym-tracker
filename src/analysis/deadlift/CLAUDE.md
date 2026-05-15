@@ -71,10 +71,11 @@ Her frame için **sırayla** şu katmanlar çalışır:
 
 ### Katman 1.5: Pre-Checks (View Sanity Check)
 - Pipeline başında, filtrelemeden önce çalışır.
-- **Side view kontrolü:** Sol omuz ve sağ omuz arasındaki x-mesafesi, kalibrasyondan gelen `shoulder_width_baseline`'ın %30'undan küçükse → side view kabul edilir, frame geçer.
-- Mesafe daha büyükse → `RejectedFrame(reason='expected_side_view')` döndürülür, frame pipeline'da ilerlemez.
+- **Side view kontrolü:** Sol omuz ve sağ omuz arasındaki x-mesafesi, kalibrasyondan gelen `torso_length_baseline`'ın %20'sinden küçükse → side view kabul edilir, frame geçer.
+- Mesafe daha büyükse → `RejectedFrame(reason='not_side_view')` döndürülür, frame pipeline'da ilerlemez.
 - UI katmanına uyarı sinyali: "Lütfen kamerayı yandan konumlandırın".
 - **Anti-pattern uyarısı:** view tespiti `deadlift_features.py`'ye sızdırılmayacak — bu kontrol burada kalır, başka modüller bilmez.
+- **Sprint 1.1 sapması (2026-05):** Plan başlangıçta `shoulder_width × 0.30` öngörüyordu. Side-view'da iki omuz birbirinin arkasında kaldığı için 2D `shoulder_width` projeksiyonu ~0.01-0.02 mertebesine düşüyor; bu da eşiği tersine çeviriyor ve normal side-view frame'lerini reddediyordu. `torso_length` görünüme bağımsız (omuz-mid → kalça-mid dikey mesafe), kararlı bir referans olduğu için onunla değiştirildi. Eşik oranı `0.30` → `0.20` olarak düşürüldü.
 
 ### Katman 2: Landmark Filtreleme
 - **Asla ham koordinat kullanma.**
@@ -211,7 +212,7 @@ src/
         ├── filters.py                     # Katman 2 — EMA / median filter
         ├── calibration.py                 # Katman 3 — standing baseline (TEK NOKTADA)
         ├── pre_checks.py                  # Pipeline başında çalışır — side-view doğrulaması
-        │                                  # Sol-sağ omuz x-mesafesi < shoulder_width × 0.30 → side kabul
+        │                                  # Sol-sağ omuz x-mesafesi < torso_length × 0.20 → side kabul
         │                                  # Aksi halde RejectedFrame döndürür (frame analiz edilmez)
         ├── deadlift_features.py           # Filtrelenmiş landmark → DeadliftFeatures dataclass
         ├── phase_detector.py              # Katman 4 — state machine (SETUP/PULL/LOCKOUT/DESCENT)
