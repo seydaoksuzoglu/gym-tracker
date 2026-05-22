@@ -19,6 +19,7 @@ class StandingBaseline:
     torso_length: float
     shoulder_width: float
     femur_length: float
+    standing_hip_y: float  # YENİ: dik duruşta kalça orta noktasının y'si
 
 
 class StandingCalibrator:
@@ -97,6 +98,7 @@ class StandingCalibrator:
             torso_length=statistics.fmean(self._torso_samples),
             shoulder_width=statistics.fmean(self._shoulder_samples),
             femur_length=statistics.fmean(self._femur_samples),
+            standing_hip_y=statistics.fmean(self._hip_y_samples),
         )
         logger.info(
             "Kalibrasyon tamam: torso=%.4f shoulder=%.4f femur=%.4f",

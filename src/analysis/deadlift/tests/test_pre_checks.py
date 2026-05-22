@@ -19,12 +19,15 @@ def _frame_with_shoulders(left_x: float, right_x: float) -> LandmarkFrame:
     return LandmarkFrame(landmarks=landmarks, ts_ms=0)
 
 
-BASELINE = StandingBaseline(torso_length=0.3, shoulder_width=0.20, femur_length=0.25)
+BASELINE = StandingBaseline(
+    torso_length=0.3, shoulder_width=0.20, femur_length=0.25,
+    standing_hip_y=0.45,
+)
 # threshold = 0.20 * 0.30 = 0.06
 
 
 def test_passes_when_baseline_none():
-    frame = _frame_with_shoulders(0.40, 0.45)
+    frame = _frame_with_shoulders(0.30, 0.55)
     assert check_side_view(frame, baseline=None) is None
 
 

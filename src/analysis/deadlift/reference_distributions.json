@@ -1,0 +1,166 @@
+{
+  "_meta": {
+    "schema_version": "0.2.0",
+    "module": "deadlift",
+    "movement": "conventional_deadlift",
+    "view": "side",
+    "data_basis": "literature_estimated_v0",
+    "generated": "2026-05-16",
+    "trigger_for_v1": "false_positive_rate > 0.20 in Sprint 5 validation, or rep-level accuracy < 0.70, or demographic mismatch with source population (experienced male lifters)",
+    "units": {
+      "T": "degrees from vertical (0 = upright, 90 = horizontal)",
+      "K": "knee angle, hip-knee-ankle (180 = full extension, 90 = right-angle)",
+      "hip_shoulder_velocity_ratio": "dimensionless; v_hip_y / v_shoulder_y at the checkpoint"
+    },
+    "tolerance_deg": 1.5,
+    "warnings": [
+      "back_angle was removed from V0 z-score: it is geometrically the complement of T (back = 90 - T) and carries no independent signal. Spine-curvature feature (ear-shoulder-hip) is deferred to V1 with the rounded_back error.",
+      "hip_shoulder_velocity_ratio values are literature-informed estimates (no direct numeric SD published). Wider SDs are used to reflect this uncertainty.",
+      "Distributions reflect experienced male lifters at submaximal-to-near-maximal load. Recalibration required for novice or female populations.",
+      "Checkpoint id is the canonical lookup key (e.g. PULL_35). Phase + T tuple is informational."
+    ],
+    "primary_sources": [
+      "Hales et al. 2009 J Strength Cond Res 23(9):2574-2580",
+      "Escamilla et al. 2000 Med Sci Sports Exerc 32(7):1265-1275",
+      "Escamilla et al. 2001 Med Sci Sports Exerc 33(8):1345-1353",
+      "Schellenberg et al. 2013 BMC Sports Sci Med Rehabil 5:27",
+      "Hanen et al. 2025 Front Bioeng Biotechnol 13:1597209"
+    ]
+  },
+  "phases": {
+    "PULL": {
+      "checkpoints": [
+        {
+          "id": "PULL_35",
+          "T": 35,
+          "position": "early-mid PULL, bar around shin",
+          "K_mean": 138.0,
+          "K_std": 10.0,
+          "hip_shoulder_velocity_ratio_mean": 1.05,
+          "hip_shoulder_velocity_ratio_std": 0.25
+        },
+        {
+          "id": "PULL_30",
+          "T": 30,
+          "position": "mid PULL, bar between shin and knee",
+          "K_mean": 150.0,
+          "K_std": 8.0,
+          "hip_shoulder_velocity_ratio_mean": 1.00,
+          "hip_shoulder_velocity_ratio_std": 0.20
+        },
+        {
+          "id": "PULL_25",
+          "T": 25,
+          "position": "knee pass (KP), bar at knee level",
+          "K_mean": 158.0,
+          "K_std": 7.0,
+          "hip_shoulder_velocity_ratio_mean": 0.98,
+          "hip_shoulder_velocity_ratio_std": 0.18
+        },
+        {
+          "id": "PULL_20",
+          "T": 20,
+          "position": "post-KP, bar below mid-thigh",
+          "K_mean": 167.0,
+          "K_std": 6.0,
+          "hip_shoulder_velocity_ratio_mean": 0.95,
+          "hip_shoulder_velocity_ratio_std": 0.18
+        },
+        {
+          "id": "PULL_15",
+          "T": 15,
+          "position": "late PULL, bar at mid-thigh",
+          "K_mean": 173.0,
+          "K_std": 5.0,
+          "hip_shoulder_velocity_ratio_mean": 0.90,
+          "hip_shoulder_velocity_ratio_std": 0.15
+        },
+        {
+          "id": "PULL_10",
+          "T": 10,
+          "position": "near lockout",
+          "K_mean": 177.0,
+          "K_std": 4.0,
+          "hip_shoulder_velocity_ratio_mean": 0.85,
+          "hip_shoulder_velocity_ratio_std": 0.15
+        },
+        {
+          "id": "PULL_5",
+          "T": 5,
+          "position": "pre-lockout",
+          "K_mean": 179.0,
+          "K_std": 3.0,
+          "hip_shoulder_velocity_ratio_mean": 0.80,
+          "hip_shoulder_velocity_ratio_std": 0.15
+        }
+      ]
+    },
+    "DESCENT": {
+      "checkpoints": [
+        {
+          "id": "DESCENT_5",
+          "T": 5,
+          "position": "DESCENT initiation, just past lockout",
+          "K_mean": 178.0,
+          "K_std": 3.5,
+          "hip_shoulder_velocity_ratio_mean": 1.00,
+          "hip_shoulder_velocity_ratio_std": 0.18
+        },
+        {
+          "id": "DESCENT_10",
+          "T": 10,
+          "position": "early DESCENT, hip-hinge dominant",
+          "K_mean": 175.0,
+          "K_std": 5.0,
+          "hip_shoulder_velocity_ratio_mean": 1.05,
+          "hip_shoulder_velocity_ratio_std": 0.20
+        },
+        {
+          "id": "DESCENT_15",
+          "T": 15,
+          "position": "mid-early DESCENT",
+          "K_mean": 170.0,
+          "K_std": 6.0,
+          "hip_shoulder_velocity_ratio_mean": 1.05,
+          "hip_shoulder_velocity_ratio_std": 0.20
+        },
+        {
+          "id": "DESCENT_20",
+          "T": 20,
+          "position": "mid DESCENT, bar at mid-thigh",
+          "K_mean": 165.0,
+          "K_std": 7.0,
+          "hip_shoulder_velocity_ratio_mean": 1.00,
+          "hip_shoulder_velocity_ratio_std": 0.20
+        },
+        {
+          "id": "DESCENT_25",
+          "T": 25,
+          "position": "KP descent, bar at knee",
+          "K_mean": 156.0,
+          "K_std": 8.0,
+          "hip_shoulder_velocity_ratio_mean": 0.98,
+          "hip_shoulder_velocity_ratio_std": 0.20
+        },
+        {
+          "id": "DESCENT_30",
+          "T": 30,
+          "position": "late DESCENT, bar above shin",
+          "K_mean": 147.0,
+          "K_std": 9.0,
+          "hip_shoulder_velocity_ratio_mean": 0.95,
+          "hip_shoulder_velocity_ratio_std": 0.22
+        },
+        {
+          "id": "DESCENT_35",
+          "T": 35,
+          "position": "DESCENT end, approaching setup",
+          "K_mean": 135.0,
+          "K_std": 11.0,
+          "hip_shoulder_velocity_ratio_mean": 0.95,
+          "hip_shoulder_velocity_ratio_std": 0.25
+        }
+      ]
+    }
+  }
+}

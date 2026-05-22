@@ -11,11 +11,13 @@ from src.common.geometry import angle, angle_to_vertical, choose_best_side
 
 @dataclass(frozen=True)
 class DeadliftFeatures:
-    side: str          # "left" / "right"
-    T: float           # govde-dikey aci (derece). SETUP'ta yuksek, LOCKOUT'ta ~0.
-    K: float           # diz acisi (derece). hip-knee-ankle.
-    back_angle: float  # omuz-kalca hattinin yatayla acisi (derece).
-    hip_y: float       # filtrelenmis kalca y koordinati.
+    side: str           # "left" / "right"
+    T: float            # govde-dikey aci (derece). SETUP'ta yuksek, LOCKOUT'ta ~0.
+    K: float            # diz acisi (derece). hip-knee-ankle.
+    back_angle: float   # omuz-kalca hattinin yatayla acisi (derece).
+                        # NOT: V0'da Z-score'a girmiyor (= 90 - T). Geriye uyumluluk icin tutuldu.
+    hip_y: float        # filtrelenmis kalca y koordinati.
+    shoulder_y: float   # filtrelenmis omuz y koordinati. velocity_ratio icin.
     avg_visibility: float
     valid: bool
 
@@ -35,6 +37,7 @@ def extract_deadlift_features(frame: LandmarkFrame) -> DeadliftFeatures:
             side=side_name,
             T=0.0, K=0.0, back_angle=0.0,
             hip_y=hip.y if hip.valid else -1.0,
+            shoulder_y=shoulder.y if shoulder.valid else -1.0,
             avg_visibility=avg_vis,
             valid=False,
         )
@@ -54,6 +57,7 @@ def extract_deadlift_features(frame: LandmarkFrame) -> DeadliftFeatures:
         K=K,
         back_angle=back_angle,
         hip_y=h_xy[1],
+        shoulder_y=s_xy[1],
         avg_visibility=avg_vis,
         valid=True,
     )

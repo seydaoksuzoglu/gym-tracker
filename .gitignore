@@ -5,3 +5,6 @@ outputs/
 data/squat/videos/
 yolo*.pt
 models/
+src/analysis/deadlift/CLAUDE.md
+CLAUDE.md
+tests/fixtures

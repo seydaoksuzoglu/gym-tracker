@@ -18,7 +18,7 @@ class RejectedFrame:
     reason: str
 
 
-SIDE_VIEW_RATIO_THRESHOLD = 0.20  # shoulder_x / torso_length
+SIDE_VIEW_RATIO_THRESHOLD = 0.50  # shoulder_x / torso_length
 
 
 def check_side_view(

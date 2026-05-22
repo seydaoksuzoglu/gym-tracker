@@ -2,6 +2,32 @@ import numpy as np
 import cv2
 from mediapipe.tasks.python import vision
 from mediapipe.tasks.python.vision import drawing_utils, drawing_styles
+import cv2
+
+def draw_phase_label(frame_bgr, phase: str, ts_ms: int, x: int = 20, y: int = 40):
+    """Faz etiketi - sol ust koşeye buyuk yazi."""
+    color_map = {
+        "setup":   (200, 200, 200),
+        "pull":    (0, 200, 255),     # turuncu/cyan
+        "lockout": (0, 255, 0),       # yesil
+        "descent": (0, 165, 255),     # turuncu
+    }
+    color = color_map.get(phase, (255, 255, 255))
+    text = f"{phase.upper()}  t={ts_ms/1000:.2f}s"
+    cv2.putText(frame_bgr, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2)
+
+
+def draw_rep_counter(frame_bgr, rep_count: int, incomplete: int = 0, x: int = 20, y: int = 80):
+    """Rep sayaci."""
+    cv2.putText(
+        frame_bgr, f"REPS: {rep_count}", (x, y),
+        cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3,
+    )
+    if incomplete > 0:
+        cv2.putText(
+            frame_bgr, f"(incomplete: {incomplete})", (x, y + 30),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 100, 255), 2,
+        )
 
 
 def draw_landmarks_on_image_mediapipe(rgb_image: np.ndarray, detection_result):
