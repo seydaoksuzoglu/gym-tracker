@@ -101,8 +101,11 @@ def save_rep(set_id: int, rep_dict: dict) -> int:
                 evidence=evidence,
             ))
 
+        # Incomplete rep'ler kayda alinir ama set.completed_reps'i artirmaz
+        # (rutin hedefi sadece tam rep'leri saysin).
+        is_incomplete = rep_dict.get("overall_grade") == "incomplete"
         set_row = db.get(SetRow, set_id)
-        if set_row is not None:
+        if set_row is not None and not is_incomplete:
             set_row.completed_reps = (set_row.completed_reps or 0) + 1
 
         return rep.id

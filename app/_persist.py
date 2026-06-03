@@ -73,4 +73,26 @@ def compute_routine_progress(routine_id: int) -> dict:
         "completed_at": routine.completed_at,
     }
 
+def persist_set(
+    session_id: int,
+    exercise: str,
+    backend: str,
+    set_index: int,
+    reps: list,
+    target_reps: Optional[int] = None,
+) -> dict:
+    """Var olan bir session_id'ye tek set + N rep yazar."""
+    from src.storage.repository import save_rep, save_set
+
+    set_id = save_set(
+        session_id=session_id,
+        exercise_key=exercise,
+        set_index=set_index,
+        target_reps=target_reps,
+        backend=backend,
+    )
+    for rep_dict in reps:
+        save_rep(set_id, rep_dict)
+    return {"set_id": set_id, "rep_count": len(reps)}
+
 
