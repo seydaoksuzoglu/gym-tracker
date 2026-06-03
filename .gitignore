@@ -8,3 +8,6 @@ models/
 src/analysis/deadlift/CLAUDE.md
 CLAUDE.md
 tests/fixtures
+.env
+data/*.db
+data/*.db-journal

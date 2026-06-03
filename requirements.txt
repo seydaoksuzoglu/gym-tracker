@@ -2,4 +2,9 @@ mediapipe
 opencv-python 
 numpy
 ultralytics
-pytest
+SQLAlchemy>=2.0
+pydantic-settings>=2.0
+python-dotenv>=1.0
+pytest>=7.0
+streamlit>=1.30
+imageio-ffmpeg>=0.4
