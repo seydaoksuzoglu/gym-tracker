@@ -1,5 +1,5 @@
 """
-Validation videolarini analyzer'dan gecirir, JSON ciktilari toplar.
+Validation videolarini analyzer'dan gecirir, JSON + overlay'li mp4 ciktilari toplar.
 Kullanim: python tools/run_validation.py
 """
 import sys
@@ -11,14 +11,25 @@ sys.path.insert(0, str(REPO_ROOT))
 import json
 import cv2
 
+from app._engine import _draw_deadlift_frame, _open_writer, _transcode_to_h264
 from src.analysis.deadlift.deadlift_analyzer import LiveDeadliftAnalyzer
 
 
-FIXTURE_DIR = Path("tests/fixtures/validation")
+FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "validation"
 OUTPUT_DIR = FIXTURE_DIR / "system_output"
-MODEL_PATH = "models/pose_landmarker_full.task"
+VIDEO_OUT_DIR = REPO_ROOT / "outputs" / "validation"
+MODEL_PATH = str(REPO_ROOT / "models" / "pose_landmarker_full.task")
 
-def run_video(video_path: Path) -> dict:
+_GRADE_COLORS = {
+    "perfect": (0, 255, 0),
+    "good": (100, 220, 100),
+    "needs_attention": (0, 200, 255),
+    "form_issue": (0, 100, 255),
+    "severe": (0, 0, 255),
+}
+
+
+def run_video(video_path: Path, video_out_path: Path | None = None) -> dict:
     analyzer = LiveDeadliftAnalyzer(MODEL_PATH)
     cap = cv2.VideoCapture(str(video_path))
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
@@ -27,6 +38,11 @@ def run_video(video_path: Path) -> dict:
 
     reps = []
     incompletes = []
+    error_counts = {"incomplete_lockout": 0, "uncontrolled_descent": 0}
+    last_rep_feedback = None
+    rep_feedback_until_ms = 0
+    writer = None
+    raw_video_out = str(video_out_path) if video_out_path else None
     # --- tani sayaclari ---
     diag = {
         "calibrating_frames": 0,
@@ -69,6 +85,19 @@ def run_video(video_path: Path) -> dict:
                 diag["phase_changes"] += 1
 
             if out.rep_event and out.rep_event.rep_completed:
+                flagged = []
+                for eid, r in (out.rep_errors or {}).items():
+                    if r.confidence >= 0.3:
+                        error_counts[eid] = error_counts.get(eid, 0) + 1
+                        flagged.append(eid)
+                grade = out.rep_overall_grade or "?"
+                last_rep_feedback = {
+                    "rep_id": out.rep_event.rep_id,
+                    "grade": grade,
+                    "flagged": flagged,
+                    "color": _GRADE_COLORS.get(grade, (255, 255, 255)),
+                }
+                rep_feedback_until_ms = ts_ms + 1500
                 rep_data = {
                     "rep_id": out.rep_event.rep_id,
                     "phase_durations_ms": dict(out.rep_event.phase_durations_ms or {}),
@@ -89,10 +118,30 @@ def run_video(video_path: Path) -> dict:
                     "at_ts_ms": ts_ms,
                 })
 
+            if raw_video_out is not None:
+                annotated = frame.copy()
+                _draw_deadlift_frame(annotated, out, ts_ms, error_counts,
+                                     last_rep_feedback, rep_feedback_until_ms)
+                if writer is None:
+                    writer = _open_writer(raw_video_out, annotated.shape)
+                    if writer is None:
+                        print("   ! Video writer acilamadi, overlay yazilmiyor")
+                        raw_video_out = None
+                if writer is not None:
+                    writer.write(annotated)
+
             frame_idx += 1
     finally:
+        if writer is not None:
+            writer.release()
         analyzer.close()
         cap.release()
+
+    # Tarayici-uyumlu H.264'e transcode
+    final_video_out = None
+    if raw_video_out is not None:
+        transcoded = _transcode_to_h264(raw_video_out)
+        final_video_out = transcoded or raw_video_out
 
     diag["phases_seen"] = sorted(diag["phases_seen"])
     return {
@@ -104,19 +153,25 @@ def run_video(video_path: Path) -> dict:
         "diagnostics": diag,
         "reps": reps,
         "incompletes": incompletes,
+        "error_counts": dict(error_counts),
+        "overlay_video": final_video_out,
     }
 
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    VIDEO_OUT_DIR.mkdir(parents=True, exist_ok=True)
     videos = sorted(FIXTURE_DIR.glob("deadlift_*.mp4"))
     if not videos:
         print(f"Video bulunamadi: {FIXTURE_DIR}/deadlift_*.mp4")
         return
-    print(f"{len(videos)} video bulundu.\n")
+    print(f"{len(videos)} video bulundu.")
+    print(f"JSON ciktilari : {OUTPUT_DIR}")
+    print(f"Overlay videolar: {VIDEO_OUT_DIR}\n")
     for vp in videos:
         print(f"=> {vp.name}")
         try:
-            result = run_video(vp)
+            video_out = VIDEO_OUT_DIR / f"{vp.stem}_overlay.mp4"
+            result = run_video(vp, video_out_path=video_out)
             out_path = OUTPUT_DIR / f"{vp.stem}_system.json"
             out_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
             d = result["diagnostics"]
@@ -126,7 +181,12 @@ def main():
                   f"rejected={d['rejected_frames']} valid_feats={d['valid_feature_frames']}")
             if d["rejection_reasons"]:
                 print(f"   rejection: {d['rejection_reasons']}")
+            if result["error_counts"]:
+                err_str = "  ".join(f"{k}={v}" for k, v in result["error_counts"].items())
+                print(f"   errors:    {err_str}")
             print(f"   phases_seen: {d['phases_seen']}")
+            if result["overlay_video"]:
+                print(f"   overlay:    {Path(result['overlay_video']).relative_to(REPO_ROOT)}")
         except Exception as e:
             print(f"   HATA: {e}")
         print()
