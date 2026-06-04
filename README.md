@@ -21,7 +21,7 @@ Streamlit arayüzü, SQLite kalıcı veri katmanı ve MediaPipe + YOLO çift bac
 ---
 
 ## Ekran Görüntüleri
-<img width="1918" height="863" alt="anasayfa" src="https://github.com/user-attachments/assets/83a49ed7-8c2a-4997-8fc8-0b6ccaee4963" />
+<img width="800"  alt="anasayfa" src="https://github.com/user-attachments/assets/83a49ed7-8c2a-4997-8fc8-0b6ccaee4963" />
 
 | Canlı Analiz | Video Yükle |
 |---|---|
@@ -35,9 +35,24 @@ Streamlit arayüzü, SQLite kalıcı veri katmanı ve MediaPipe + YOLO çift bac
 
 | Form Analiz | Tekrar Sayımı |
 |---|---|
-| Squat 
-|<img width="400" alt="image" src="https://github.com/user-attachments/assets/a8f5bff7-2140-4145-8132-fa97f06e7fbd" />
-|<img width="400" alt="image" src="https://github.com/user-attachments/assets/17b4a0bb-619d-493d-af6f-a2d30e88ee7c" />
+| Squat|
+|<img width="400" alt="image" src="https://github.com/user-attachments/assets/a8f5bff7-2140-4145-8132-fa97f06e7fbd" />|<img width="400" alt="image" src="https://github.com/user-attachments/assets/17b4a0bb-619d-493d-af6f-a2d30e88ee7c" />
+
+|Deadlift|
+| <img width="400" alt="deadlift" src="https://github.com/user-attachments/assets/65b392ea-6718-46c2-80df-b1866b7d68b1" /> | <img width="346" height="756" alt="deadlift_wrong_form" src="https://github.com/user-attachments/assets/d66452c1-277c-47ed-98ad-c4a68eb1129f" />
+
+| Sonuçlar |
+|---|---|
+| Squat Sonuçlar |
+<img width="800" alt="squat1analiz1" src="https://github.com/user-attachments/assets/1e69ae4f-3450-4069-8cc2-161b8d1fc72a" />
+| Deadlift Sonuçlar |
+| <img width="800" alt="deadliftsonuc" src="https://github.com/user-attachments/assets/b031f7a7-4e58-43bf-b26d-3821599781de" />
+
+| Geçmiş Dashboard |
+|---|---|
+<img width="800" alt="gecmisdashboard1" src="https://github.com/user-attachments/assets/92d5e01e-b7a0-4fdf-ad01-2d3377062c33" />
+
+
 
 
 ## Teknoloji Stack
