@@ -343,7 +343,7 @@ Storage testleri bellek-içi SQLite ile çalışır — gerçek `data/gymtracker
 - [x] SQLAlchemy storage + rutin ↔ oturum bağlama
 - [x] Overlay'li mp4 çıktı + H.264 transcode
 - [ ] Deadlift validation accuracy ≥ %70
-- [ ] Push-up / biceps curl modülleri
+- [ ] Biceps curl modülü
 - [ ] Hibrit model (zaman-serisi ML) entegrasyonu
 - [ ] React / Next.js frontend + FastAPI ayrımı
 - [ ] Multi-user (user tablosu + auth)
@@ -364,9 +364,3 @@ Storage testleri bellek-içi SQLite ile çalışır — gerçek `data/gymtracker
 
 Bu proje bir bitirme projesi kapsamında geliştirilmektedir. Lisans bilgisi proje sahibine aittir.
 
----
-
-## Modül Dokümanları
-
-- [`CLAUDE.md`](CLAUDE.md) — Proje kök planı (mimari + sprint yapısı)
-- [`src/analysis/deadlift/CLAUDE.md`](src/analysis/deadlift/CLAUDE.md) — Deadlift pipeline detayı (8 katman)
