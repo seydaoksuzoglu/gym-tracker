@@ -2,9 +2,9 @@
 
 > **Poz Kestirimi Tabanlı Fitness Antrenörü — Gerçek Zamanlı Form Analizi ve Rutin Takibi**
 
-Webcam veya video üzerinden squat ve deadlift egzersizlerini analiz eden, vücut iskeletini çıkaran, **tekrar sayan**, **form hatalarını tespit eden** ve **antrenman geçmişini takip eden** bir masaüstü uygulaması.
+Webcam veya video üzerinden squat ve deadlift egzersizlerini analiz eden, vücut iskeletini çıkaran, **tekrar sayan**, **form hatalarını tespit eden** ve **antrenman geçmişini takip eden** bir web uygulaması.
 
-Streamlit arayüzü, SQLite/PostgreSQL kalıcı veri katmanı ve MediaPipe + YOLO çift backend pose kestirimi ile inşa edilmiştir.
+Streamlit arayüzü, SQLite kalıcı veri katmanı ve MediaPipe + YOLO çift backend pose kestirimi ile inşa edilmiştir.
 
 ---
 
@@ -19,6 +19,26 @@ Streamlit arayüzü, SQLite/PostgreSQL kalıcı veri katmanı ve MediaPipe + YOL
 - **Hibrit veri toplama altyapısı**: Faz etiketleme GUI'si + landmark çıkarımı + validation karşılaştırma araçları.
 
 ---
+
+## Ekran Görüntüleri
+<img width="1918" height="863" alt="anasayfa" src="https://github.com/user-attachments/assets/83a49ed7-8c2a-4997-8fc8-0b6ccaee4963" />
+
+| Canlı Analiz | Video Yükle |
+|---|---|
+|
+<img width="800" alt="canlianalizekrani" src="https://github.com/user-attachments/assets/125804b4-3e7e-4180-a981-7841aa6963a4" />
+
+| Rutinler | Dashboard |
+|---|---|
+|<img width="800" alt="gecmisdashboard1" src="https://github.com/user-attachments/assets/664d147e-b1d3-4fdf-a9bf-8519e37849e4" />
+|<img width="800" alt="rutinekle" src="https://github.com/user-attachments/assets/8338aa81-7220-484d-803b-cf583e317ccc" />
+
+| Form Analiz | Tekrar Sayımı |
+|---|---|
+| Squat 
+|<img width="400" alt="image" src="https://github.com/user-attachments/assets/a8f5bff7-2140-4145-8132-fa97f06e7fbd" />
+|<img width="400" alt="image" src="https://github.com/user-attachments/assets/17b4a0bb-619d-493d-af6f-a2d30e88ee7c" />
+
 
 ## Teknoloji Stack
 
@@ -320,7 +340,3 @@ Bu proje bir bitirme projesi kapsamında geliştirilmektedir. Lisans bilgisi pro
 
 ---
 
-## Modül Dokümanları
-
-- [`CLAUDE.md`](CLAUDE.md) — Proje kök planı (mimari + sprint yapısı)
-- [`src/analysis/deadlift/CLAUDE.md`](src/analysis/deadlift/CLAUDE.md) — Deadlift pipeline detayı (8 katman)
