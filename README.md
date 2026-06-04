@@ -40,7 +40,7 @@ Streamlit arayüzü, SQLite/PostgreSQL kalıcı veri katmanı ve MediaPipe + YOL
 
 **Squat**
 
-| Form Analizi |  |
+| Form Analizi | Hatalı Form |
 |:---:|:---:|
 | <img width="400" alt="Squat form analizi" src="https://github.com/user-attachments/assets/a8f5bff7-2140-4145-8132-fa97f06e7fbd" /> | <img width="400" alt="Squat tekrar sayımı" src="https://github.com/user-attachments/assets/17b4a0bb-619d-493d-af6f-a2d30e88ee7c" /> |
 
