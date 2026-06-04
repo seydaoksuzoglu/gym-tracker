@@ -48,7 +48,7 @@ def end_session(session_id: int) -> None:
         row = db.get(SessionRow, session_id)
         if row is None:
             raise ValueError(f"Session {session_id} not found")
-        row.ended_at = datetime.utcnow()
+        row.ended_at = datetime.now()
 
 
 # ---------- Sets ----------
@@ -67,7 +67,7 @@ def save_set(
             set_index=set_index,
             target_reps=target_reps,
             backend=backend,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(),
         )
         db.add(row)
         db.flush()
@@ -180,7 +180,7 @@ def mark_routine_completed(routine_id: int) -> None:
         row = db.get(Routine, routine_id)
         if row is None:
             raise ValueError(f"Routine {routine_id} not found")
-        row.completed_at = datetime.utcnow()
+        row.completed_at = datetime.now()
 
 
 def reopen_routine(routine_id: int) -> None:

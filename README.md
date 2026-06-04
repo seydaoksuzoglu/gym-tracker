@@ -1,194 +1,326 @@
-# Poz Kestirimi Tabanlı Fitness Antrenörü  
-## Gerçek Zamanlı Form Analizi ve Rutin Takibi
+# Gym Tracker
 
-Bu proje, poz kestirimi tabanlı görüntü işleme yöntemleri kullanarak kullanıcının egzersizlerini **webcam** veya **video** üzerinden analiz eden bir dijital fitness antrenörü geliştirmeyi amaçlamaktadır. Sistem, egzersiz sırasında kullanıcının vücut noktalarını çıkarır, hareketi değerlendirir, **tekrar sayımı** yapar, **form hatalarını** tespit eder ve kullanıcıya **anlık geri bildirim** sunar.
+> **Poz Kestirimi Tabanlı Fitness Antrenörü — Gerçek Zamanlı Form Analizi ve Rutin Takibi**
 
-Projenin ana hedefi, kullanıcıların bir antrenör desteği olmadan da egzersizlerini daha kontrollü, güvenli ve ölçülebilir şekilde yapabilmesini sağlamaktır.
+Webcam veya video üzerinden squat ve deadlift egzersizlerini analiz eden, vücut iskeletini çıkaran, **tekrar sayan**, **form hatalarını tespit eden** ve **antrenman geçmişini takip eden** bir masaüstü uygulaması.
 
----
-
-## Proje Amacı
-
-Bu proje kapsamında, poz kestirimi temelli bir analiz sistemi geliştirilerek özellikle form hatasına açık egzersizlerde kullanıcının hareket kalitesinin değerlendirilmesi hedeflenmiştir. Sistem yalnızca tekrar sayımı yapan bir yapı olarak değil, aynı zamanda hatalı form durumlarında kullanıcıyı açıklayıcı uyarılarla yönlendiren bir yardımcı antrenör olarak tasarlanmıştır.
-
-Bunun yanında proje, yapılan antrenmanların set, tekrar ve rutin düzeyinde takip edilebileceği bir altyapı kurmayı amaçlamaktadır. Böylece kullanıcı hem anlık geri bildirim alabilmekte hem de zaman içindeki gelişimini izleyebilmektedir.
+Streamlit arayüzü, SQLite/PostgreSQL kalıcı veri katmanı ve MediaPipe + YOLO çift backend pose kestirimi ile inşa edilmiştir.
 
 ---
 
-## Kapsam
+## Öne Çıkan Özellikler
 
-Proje mimarisi farklı egzersizleri destekleyecek şekilde düşünülmüştür. Şu an geliştirme odağı özellikle **squat** egzersizi üzerindedir. Sistem yapısı ilerleyen aşamalarda **deadlift** ve **push-up** gibi hareketlere de genişletilecek şekilde tasarlanmıştır.
-
----
-
-## Temel Özellikler
-
-- Webcam ve video girdisi ile çalışma
-- İnsan vücudu landmark / keypoint çıkarımı
-- Gerçek zamanlı iskelet görselleştirmesi
-- Squat için tekrar sayımı
-- Squat için form-hata tespiti
-- Önden / yandan görünüm ayrımı
-- Kural tabanlı analiz altyapısı
-- Benchmark ve performans karşılaştırmaları
-- Veri etiketleme ve veri seti hazırlama altyapısı
-- Hibrit analiz yaklaşımı için hazırlık
+- **İki egzersiz desteği**: Squat (kural-tabanlı + faz makinesi) ve Deadlift (8-katmanlı pipeline: kalibrasyon → faz → kontrol noktası → z-score → güven skoru).
+- **Çift girdi**: Webcam ile **canlı analiz** (Streamlit + WebRTC) veya **video yükleme** ile sonradan analiz.
+- **Overlay'li mp4 çıktısı**: İskelet + faz etiketi + rep sayacı + hata uyarısı çizili, tarayıcı-uyumlu H.264.
+- **Rutin & set takibi**: Hedef set × tekrar tanımla, gerçekleşeni karşılaştır, oturum ↔ rutin bağlama.
+- **Geçmiş & dashboard**: Egzersize göre günlük tekrar grafiği, hata frekansı, oturum bazlı detay inceleme.
+- **Çift backend**: MediaPipe Pose Landmarker (varsayılan, düşük gecikme) ve YOLO26-Pose (alternatif benchmark).
+- **Hibrit veri toplama altyapısı**: Faz etiketleme GUI'si + landmark çıkarımı + validation karşılaştırma araçları.
 
 ---
 
-## Kullanılan Yaklaşımlar
+## Teknoloji Stack
 
-Projede iki temel yaklaşım bir araya getirilmektedir:
-
-### 1. Kural tabanlı analiz
-Açıklanabilir ve anlık geri bildirim verebilen yapı bu kısımdır. Eklem açıları, hareket evreleri, görünüm yönü ve belirli biyomekanik kurallar üzerinden hata tespiti yapılır.
-
-### 2. Makine öğrenmesi destekli hibrit yaklaşım
-Sadece sabit eşiklere dayalı sistemlerin sınırlı kaldığı durumlarda daha esnek analiz yapabilmek için zaman serisi tabanlı öğrenme modelleri planlanmıştır. Bu doğrultuda veri hazırlama ve etiketleme süreci başlatılmıştır.
-
----
-
-## Sistem Akışı
-
-Projenin temel işleyişi aşağıdaki gibidir:
-
-1. Egzersiz seçimi yapılır  
-2. Girdi kaynağı belirlenir (`webcam` veya `video`)  
-3. Poz / landmark çıkarımı yapılır  
-4. Kullanıcının görüş yönü belirlenir  
-5. Form analizi gerçekleştirilir  
-6. Tekrar sayımı güncellenir  
-7. Kullanıcıya geri bildirim sunulur  
-8. Sonuçlar gösterilir ve kayıt altına alınır  
+| Katman | Tercih | Neden |
+|---|---|---|
+| Dil | Python 3.11+ | Tek dil, analiz motoru zaten Python |
+| UI | **Streamlit** + multi-page | Pipeline'a sıfır sürtünmeyle bağlanır |
+| Canlı video | **streamlit-webrtc** | Tarayıcı kamerasını Python callback'ine taşır |
+| Canlı (alternatif/yedek) | **OpenCV penceresi** (`inference/run_pose.py`) | Lokal akıcılık + ağ bağımsız demo |
+| Pose backend | **MediaPipe Pose Landmarker** (default), **YOLO26/v8/11-Pose** | Hız ↔ doğruluk kıyası |
+| Veritabanı | **SQLite** (default) / **PostgreSQL** opsiyonel | Lokal demo + bulut deploy yolu |
+| ORM | SQLAlchemy 2.x | SQLite ↔ Postgres tek `DATABASE_URL` ile |
+| Config | pydantic-settings + `.env` | Hardcoded yol yok |
+| Sayısal | NumPy, SciPy | EMA / median filtre, geometrik metrikler |
+| Video I/O | OpenCV, imageio-ffmpeg | H.264 transcode |
+| Test | pytest | Storage + analiz birim testleri |
 
 ---
 
-## Kural Tabanlı Squat Analizi
+## Kurulum
 
-Squat özelinde geliştirilen kural tabanlı yapı üç temel modül üzerinden çalışmaktadır:
-
-### `squat_features.py`
-Ham pose koordinatlarını analizde kullanılabilecek özniteliklere dönüştürür.
-
-Örnek öznitelikler:
-- Diz açısı
-- Kalça açısı
-- Topuk kalkma oranı
-- Diz hizası sapması
-- Görüş yönüne göre güvenilir taraf seçimi
-
-### `squat_rules.py`
-Squat hareketine ait biyomekanik kuralları uygular ve form hatalarını tespit eder.
-
-Örnek kontroller:
-- Yetersiz derinlik
-- Topuk kalkması
-- Gövde eğimi
-- Diz hizasının bozulması
-
-### `squat_counter.py`
-Squat hareketini bir durum makinesi olarak takip eder ve tekrar sayımını yapar.
-
-Takip edilen fazlar:
-- `standing`
-- `descent`
-- `bottom`
-- `ascent`
-
-Bu yapı sayesinde yalnızca tam hareket döngüsünü tamamlayan tekrarlar geçerli sayılır.
-
----
-
-## Veri Hazırlama Süreci
-
-Projenin hibrit analiz kısmı için squat videoları toplanmış ve etiketleme süreci başlatılmıştır.
-
-### `label_gui.py`
-Her tekrarın başlangıç, dip nokta ve bitiş karelerini manuel olarak işaretlemek için geliştirilmiştir.
-
-### `extract_landmarks.py`
-Videolardan MediaPipe veya YOLO tabanlı pose çıktıları alınarak iskelet koordinatları dışa aktarılır.
-
-### `extract_dataset.py`
-Etiketler ile pose verilerini birleştirerek zaman serisi modellerinde kullanılabilecek yapılandırılmış veri setini üretir.
-
----
-
-## Kullanılan Teknolojiler
-
-- Python
-- OpenCV
-- MediaPipe
-- YOLO tabanlı pose modelleri
-- NumPy
-- Matplotlib
-- Özel kural tabanlı analiz modülleri
-
----
-
-## Benchmark Sonuçları
-
-Projede farklı poz kestirimi yöntemleri performans açısından karşılaştırılmıştır. Yapılan testlerde özellikle aşağıdaki yapılar değerlendirilmiştir:
-
-- MediaPipe
-- YOLO26-Pose
-- YOLOv8-Pose
-- YOLO11-Pose
-
-### Genel gözlemler
-- **MediaPipe**, hız ve gecikme açısından en yüksek performansı vermiştir.
-- **YOLO26-Pose**, tekrar sayımı ve bazı analiz senaryolarında daha güçlü sonuçlar sunmuştur.
-- CPU üzerinde çalışan YOLO tabanlı yapıların gerçek zamanlı kullanım açısından yetersiz kaldığı gözlemlenmiştir.
-- Form-hata tespiti probleminin, tekrar sayımına göre daha zor olduğu görülmüştür.
-
-Bu sonuçlar, projede neden **hibrit bir yapıya** ihtiyaç duyulduğunu desteklemektedir.
-
----
-
-## Mevcut Durum
-
-Şu an proje kapsamında:
-
-- Squat için pose tabanlı analiz akışı kurulmuştur
-- Squat tekrar sayımı geliştirilmiştir
-- Squat için kural tabanlı form analizi oluşturulmuştur
-- MediaPipe ve YOLO tabanlı benchmark çalışmaları yapılmıştır
-- Veri hazırlama ve etiketleme altyapısı başlatılmıştır
-
----
-
-## Planlanan Geliştirmeler
-
-- Deadlift ve push-up egzersizleri için analiz modüllerinin eklenmesi
-- Hibrit model eğitiminin tamamlanması
-- Form-hata tespit doğruluğunun artırılması
-- Rutin ve antrenman geçmişi takibi
-- Web arayüzü / kullanıcı paneli entegrasyonu
-- Daha güçlü kullanıcı geri bildirim sistemi
-- Çok egzersizli tek platform yapısı
-
----
-
-## Proje Dizini
+### 1. Repo'yu klonla ve sanal ortam oluştur
 
 ```bash
-project/
+git clone https://github.com/seydaoksuzoglu/gym-tracker.git
+cd gym-tracker
+
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+### 2. Pose modelini indir
+
+MediaPipe Pose Landmarker (Full) modelini `models/pose_landmarker_full.task` konumuna yerleştir:
+
+- Resmi link: https://developers.google.com/mediapipe/solutions/vision/pose_landmarker
+- YOLO26-Pose ağırlığı opsiyoneldir (`yolo26m-pose.pt`); kullanmıyorsan görmezden gelebilirsin.
+
+### 3. Ortam değişkenleri
+
+```bash
+# Windows:
+copy .env.example .env
+# macOS/Linux:
+cp .env.example .env
+```
+
+`.env` içeriği (varsayılan SQLite):
+
+```env
+DATABASE_URL=sqlite:///data/gymtracker.db
+MEDIAPIPE_MODEL_PATH=models/pose_landmarker_full.task
+YOLO_MODEL_PATH=yolo26m-pose.pt
+LOG_LEVEL=INFO
+```
+
+PostgreSQL/Neon'a geçmek istersen `DATABASE_URL`'i değiştirip `psycopg[binary]` paketini ekle.
+
+### 4. Veritabanını oluştur
+
+```bash
+python -m src.storage.init_db
+```
+
+Bu komut `data/gymtracker.db` dosyasını ve tüm tabloları (`sessions`, `sets`, `reps`, `rep_errors`, `routines`, `routine_items`) oluşturur.
+
+---
+
+## Çalıştırma
+
+### Streamlit arayüzü (önerilen)
+
+```bash
+python -m streamlit run app/Home.py
+```
+
+Tarayıcıda `http://localhost:8501` adresinde açılır. Sayfalar:
+
+| Sayfa | İşlev |
+|---|---|
+| **Home** | Genel giriş + hızlı navigasyon kartları |
+| **Canlı Analiz** | Webcam üzerinden gerçek zamanlı iskelet + rep + hata, set kontrol + DB persist |
+| **Video Yükle** | mp4/mov yükle, overlay'li analiz videosu üret, DB'ye kaydet, rutine bağla |
+| **Rutinler** | Rutin oluştur (egzersiz + hedef set × rep), ilerlemeyi gör, tamamla |
+| **Geçmiş & Dashboard** | Tüm oturumlar, egzersize göre günlük tekrar grafiği, hata frekansı, oturum detayı |
+
+### CLI / OpenCV penceresi (geliştirme + yedek yol)
+
+WebRTC sorun çıkarırsa veya headless demo gerekirse:
+
+```bash
+python inference/run_pose.py --exercise deadlift --mode webcam
+python inference/run_pose.py --exercise squat   --mode video --path data/test.mp4
+```
+
+---
+
+## Proje Yapısı
+
+```
+gym-tracker/
+├── app/                          # Streamlit UI
+│   ├── Home.py                   # Ana sayfa
+│   ├── _engine.py                # Analizör adapter (UI ↔ src/analysis dikişi)
+│   ├── _persist.py               # DB yazma yardımcıları
+│   ├── _styles.py                # Ortak CSS / tema
+│   └── pages/
+│       ├── 1_Canli_Analiz.py     # WebRTC canlı analiz
+│       ├── 2_Video_Yukle.py      # Video upload + analiz
+│       ├── 3_Rutinler.py         # Rutin CRUD + ilerleme
+│       └── 4_Gecmis_Dashboard.py # Geçmiş + grafikler
 │
 ├── src/
+│   ├── config.py                 # pydantic Settings (.env okuma)
+│   │
+│   ├── storage/                  # Kalıcı veri katmanı
+│   │   ├── models.py             # SQLAlchemy 2.x ORM tabloları
+│   │   ├── database.py           # Engine + SessionLocal
+│   │   ├── repository.py         # CRUD sözleşmesi
+│   │   └── init_db.py            # Tablo oluştur
+│   │
 │   ├── analysis/
-│   │   ├── squat_features.py
-│   │   ├── squat_rules.py
-│   │   ├── squat_counter.py
-│   │   └── ...
+│   │   ├── squat/                # Squat: features + rules + counter
+│   │   └── deadlift/             # Deadlift: 8-katmanlı pipeline
 │   │
-│   ├── pipeline/
-│   │   ├── label_gui.py
-│   │   ├── extract_landmarks.py
-│   │   ├── extract_dataset.py
-│   │   └── ...
-│   │
-│   ├── vis/
-│   ├── sources/
-│   └── ...
+│   ├── pose_backends/            # MediaPipe + YOLO26 adapter'ları
+│   ├── sources/                  # video.py, webcam.py (frame + ts generator)
+│   ├── vis/                      # skeleton_drawer.py — overlay çizim
+│   └── common/                   # Geometri yardımcıları
+│
+├── inference/                    # CLI / OpenCV penceresi yolu
+│   ├── run_pose.py
+│   └── webcam_pose.py
+│
+├── pipeline/                     # Veri etiketleme / dataset hazırlama
+│   ├── label_gui.py              # Manuel faz etiketleme GUI'si
+│   ├── extract_landmarks.py      # Video → pose koordinatları
+│   └── extract_dataset.py        # Etiket + landmark birleştir
+│
+├── tools/                        # Geliştirici araçları
+│   ├── run_validation.py         # Toplu validation: JSON + overlay'li mp4
+│   ├── compare_validation.py     # Ground truth ile karşılaştırma
+│   ├── label_phases.py           # Faz etiketleme yardımcısı
+│   └── debug_side_view.py        # Tek video canlı debug
+│
+├── models/                       # pose_landmarker_full.task
+├── data/                         # gymtracker.db (gitignored)
+├── outputs/                      # Analiz çıktıları (overlay video)
+├── tests/                        # pytest birim testleri
+├── .streamlit/config.toml        # Tema (emerald)
 ├── requirements.txt
-└── README.md
+└── .env.example
+```
+
+---
+
+## Mimari
+
+Üç katmanlı kesin sorumluluk ayrımı:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ app/  (Streamlit)                                        │
+│   - sadece sunum + DB yazma çağrıları                    │
+│   - analizör çağrısı: app/_engine.py adapter üzerinden   │
+└──────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌──────────────────────────────────────────────────────────┐
+│ src/analysis/  (saf analiz)                              │
+│   - sadece JSON / dataclass döner                        │
+│   - DB bilmez, UI bilmez                                 │
+└──────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌──────────────────────────────────────────────────────────┐
+│ src/storage/  (kalıcılık)                                │
+│   - analiz çıktısını okur, ORM ile yazar                 │
+│   - UI bilmez                                            │
+└──────────────────────────────────────────────────────────┘
+```
+
+Bu sınır, ileride FastAPI veya ayrı frontend (React/Next) eklenmek istenirse hazır dikiştir: `app/` katmanı HTTP istemcisine, analizör çağrısı bir endpoint'e dönüştürülebilir.
+
+---
+
+## Veritabanı Şeması
+
+```
+sessions      (id, started_at, ended_at, source, video_path?, routine_id?)
+sets          (id, session_id, exercise_key, set_index,
+               target_reps, completed_reps, backend, started_at?, ended_at?)
+reps          (id, set_id, rep_index, overall_grade,
+               phase_durations_ms JSON, video_ts_ms?, created_at)
+rep_errors    (id, rep_id, error_type, area, confidence, evidence JSON)
+
+routines      (id, name, created_at, completed_at?)
+routine_items (id, routine_id, exercise_key, target_sets, target_reps, order_index)
+```
+
+İlişkiler: `session 1—N set 1—N rep 1—N rep_error`. Rep formatı analizörün ürettiği JSON ile birebir eşleşir — tek doğruluk kaynağı.
+
+---
+
+## Deadlift Pipeline (8 Katman)
+
+Deadlift modülü kendi `CLAUDE.md`'sinde detaylanmış 8 katmanlı bir pipeline kullanır:
+
+1. **Capture** — frame + timestamp
+2. **PreChecks** — yan görünüm, vücut tamlığı
+3. **Filter** — EMA / median pürüzsüzleştirme
+4. **Normalize** — torso uzunluğuna oranlama
+5. **Phase** — `setup → pull → lockout → descent` durum makinesi
+6. **Checkpoint** — faz geçişlerinde kural kontrolü
+7. **Z-Score** — kullanıcının kendi standing kalibrasyonuna göre sapma
+8. **Confidence & Score** — `{area: 1–5, confidence: 0.0–1.0, phase_durations_ms}` çıktısı
+
+Hata türleri: `incomplete_lockout` (kilit tamamlanmamış), `uncontrolled_descent` (iniş kontrolsüz), `incomplete` (yarım tekrar).
+
+---
+
+## Validation Araçları
+
+Deadlift analizinin doğruluğunu ölçmek için:
+
+```bash
+# Tüm validation videolarını analiz et, JSON + overlay'li mp4 üret
+python tools/run_validation.py
+
+# Manuel ground truth ile sistem çıktısını karşılaştır
+python tools/compare_validation.py
+```
+
+Çıktılar:
+- JSON: `tests/fixtures/validation/system_output/*.json`
+- Overlay mp4: `outputs/validation/*_overlay.mp4`
+
+---
+
+## Pose Backend Benchmark
+
+Farklı pose modelleri karşılaştırıldı:
+
+| Backend | Hız | Doğruluk | Not |
+|---|---|---|---|
+| **MediaPipe Pose Landmarker** | Yüksek | Orta-Yüksek | Düşük gecikme, canlı için varsayılan |
+| **YOLO26-Pose** | Orta | Yüksek | Tekrar sayımında daha güçlü |
+| YOLOv8-Pose | Orta | Orta | Genel kullanım |
+| YOLO11-Pose | Orta-Düşük | Yüksek | Daha güncel |
+
+CPU üzerinde YOLO tabanlı modeller gerçek zamanlı kullanımda yetersiz kaldı; canlı analizde MediaPipe varsayılan.
+
+---
+
+## Test
+
+```bash
+pytest                    # Tüm testler
+pytest tests/test_storage.py -v   # Sadece storage testleri
+```
+
+Storage testleri bellek-içi SQLite ile çalışır — gerçek `data/gymtracker.db` etkilenmez.
+
+---
+
+## Yol Haritası
+
+- [x] Squat: kural-tabanlı analiz + tekrar sayımı
+- [x] Deadlift: 8-katmanlı pipeline + faz tespiti + hata detektörleri
+- [x] Streamlit UI: video upload + canlı webrtc + dashboard + rutinler
+- [x] SQLAlchemy storage + rutin ↔ oturum bağlama
+- [x] Overlay'li mp4 çıktı + H.264 transcode
+- [ ] Deadlift validation accuracy ≥ %70
+- [ ] Push-up / biceps curl modülleri
+- [ ] Hibrit model (zaman-serisi ML) entegrasyonu
+- [ ] React / Next.js frontend + FastAPI ayrımı
+- [ ] Multi-user (user tablosu + auth)
+
+---
+
+## Konvansiyonlar
+
+- Hardcoded yol yok — tüm yollar `src/config.py` üzerinden `.env`'den okunur.
+- `print()` yerine `logging` (DEBUG/INFO/WARNING).
+- Sırlar commit edilmez — yalnızca `.env.example`.
+- `src/vis/skeleton_drawer.py`'nin **mevcut fonksiyonlarının imza/davranışı değiştirilmez**, yeni overlay'ler için yeni fonksiyon eklenir.
+- Analiz ↔ Storage ↔ UI sınırı korunur (tek yön import).
+
+---
+
+## Lisans
+
+Bu proje bir bitirme projesi kapsamında geliştirilmektedir. Lisans bilgisi proje sahibine aittir.
+
+---
+
+## Modül Dokümanları
+
+- [`CLAUDE.md`](CLAUDE.md) — Proje kök planı (mimari + sprint yapısı)
+- [`src/analysis/deadlift/CLAUDE.md`](src/analysis/deadlift/CLAUDE.md) — Deadlift pipeline detayı (8 katman)

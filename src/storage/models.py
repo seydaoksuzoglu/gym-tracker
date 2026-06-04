@@ -18,7 +18,7 @@ class Routine(Base):
     __tablename__ = "routines"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(128))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     items: Mapped[list["RoutineItem"]] = relationship(
         back_populates="routine", cascade="all, delete-orphan"
@@ -39,7 +39,7 @@ class RoutineItem(Base):
 class Session(Base):
     __tablename__ = "sessions"
     id: Mapped[int] = mapped_column(primary_key=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     source: Mapped[str] = mapped_column(String(16))  # "webcam" | "video"
     video_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
@@ -79,7 +79,7 @@ class Rep(Base):
     overall_grade: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     phase_durations_ms: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     video_ts_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     set: Mapped["SetRow"] = relationship(back_populates="reps")
     errors: Mapped[list["RepError"]] = relationship(
         back_populates="rep", cascade="all, delete-orphan"
