@@ -2,9 +2,9 @@
 
 > **Poz Kestirimi Tabanlı Fitness Antrenörü — Gerçek Zamanlı Form Analizi ve Rutin Takibi**
 
-Webcam veya video üzerinden squat ve deadlift egzersizlerini analiz eden, vücut iskeletini çıkaran, **tekrar sayan**, **form hatalarını tespit eden** ve **antrenman geçmişini takip eden** bir web uygulaması.
+Webcam veya video üzerinden squat ve deadlift egzersizlerini analiz eden, vücut iskeletini çıkaran, **tekrar sayan**, **form hatalarını tespit eden** ve **antrenman geçmişini takip eden** bir web uygulaması (şu an lokal kurulumla çalışır; public deploy yapılmamıştır).
 
-Streamlit arayüzü, SQLite kalıcı veri katmanı ve MediaPipe + YOLO çift backend pose kestirimi ile inşa edilmiştir.
+Streamlit arayüzü, SQLite/PostgreSQL kalıcı veri katmanı ve MediaPipe + YOLO çift backend pose kestirimi ile inşa edilmiştir.
 
 ---
 
@@ -21,39 +21,50 @@ Streamlit arayüzü, SQLite kalıcı veri katmanı ve MediaPipe + YOLO çift bac
 ---
 
 ## Ekran Görüntüleri
-<img width="800"  alt="anasayfa" src="https://github.com/user-attachments/assets/83a49ed7-8c2a-4997-8fc8-0b6ccaee4963" />
 
-| Canlı Analiz | Video Yükle |
-|---|---|
-|
-<img width="800" alt="canlianalizekrani" src="https://github.com/user-attachments/assets/125804b4-3e7e-4180-a981-7841aa6963a4" />
+### Ana Sayfa
+
+<img width="900" alt="Ana Sayfa" src="https://github.com/user-attachments/assets/83a49ed7-8c2a-4997-8fc8-0b6ccaee4963" />
+
+### Canlı Analiz
+
+<img width="900" alt="Canlı Analiz" src="https://github.com/user-attachments/assets/125804b4-3e7e-4180-a981-7841aa6963a4" />
+
+### Rutinler & Dashboard
 
 | Rutinler | Dashboard |
-|---|---|
-|<img width="800" alt="gecmisdashboard1" src="https://github.com/user-attachments/assets/664d147e-b1d3-4fdf-a9bf-8519e37849e4" />
-|<img width="800" alt="rutinekle" src="https://github.com/user-attachments/assets/8338aa81-7220-484d-803b-cf583e317ccc" />
+|:---:|:---:|
+| <img width="450" alt="Rutin Ekle" src="https://github.com/user-attachments/assets/8338aa81-7220-484d-803b-cf583e317ccc" /> | <img width="450" alt="Dashboard" src="https://github.com/user-attachments/assets/664d147e-b1d3-4fdf-a9bf-8519e37849e4" /> |
 
-| Form Analiz | Tekrar Sayımı |
-|---|---|
-| Squat|
-|<img width="400" alt="image" src="https://github.com/user-attachments/assets/a8f5bff7-2140-4145-8132-fa97f06e7fbd" />|<img width="400" alt="image" src="https://github.com/user-attachments/assets/17b4a0bb-619d-493d-af6f-a2d30e88ee7c" />
+### Form Analizi & Tekrar Sayımı
 
-|Deadlift|
-| <img width="400" alt="deadlift" src="https://github.com/user-attachments/assets/65b392ea-6718-46c2-80df-b1866b7d68b1" /> | <img width="346" height="756" alt="deadlift_wrong_form" src="https://github.com/user-attachments/assets/d66452c1-277c-47ed-98ad-c4a68eb1129f" />
+**Squat**
 
-| Sonuçlar |
-|---|---|
-| Squat Sonuçlar |
-<img width="800" alt="squat1analiz1" src="https://github.com/user-attachments/assets/1e69ae4f-3450-4069-8cc2-161b8d1fc72a" />
-| Deadlift Sonuçlar |
-| <img width="800" alt="deadliftsonuc" src="https://github.com/user-attachments/assets/b031f7a7-4e58-43bf-b26d-3821599781de" />
+| Form Analizi | Tekrar Sayımı |
+|:---:|:---:|
+| <img width="400" alt="Squat form analizi" src="https://github.com/user-attachments/assets/a8f5bff7-2140-4145-8132-fa97f06e7fbd" /> | <img width="400" alt="Squat tekrar sayımı" src="https://github.com/user-attachments/assets/17b4a0bb-619d-493d-af6f-a2d30e88ee7c" /> |
 
-| Geçmiş Dashboard |
-|---|---|
-<img width="800" alt="gecmisdashboard1" src="https://github.com/user-attachments/assets/92d5e01e-b7a0-4fdf-ad01-2d3377062c33" />
+**Deadlift**
 
+| Doğru Form | Hatalı Form |
+|:---:|:---:|
+| <img width="400" alt="Deadlift doğru form" src="https://github.com/user-attachments/assets/65b392ea-6718-46c2-80df-b1866b7d68b1" /> | <img width="400" alt="Deadlift hatalı form" src="https://github.com/user-attachments/assets/d66452c1-277c-47ed-98ad-c4a68eb1129f" /> |
 
+### Analiz Sonuçları
 
+**Squat**
+
+<img width="900" alt="Squat analiz sonuçları" src="https://github.com/user-attachments/assets/1e69ae4f-3450-4069-8cc2-161b8d1fc72a" />
+
+**Deadlift**
+
+<img width="900" alt="Deadlift analiz sonuçları" src="https://github.com/user-attachments/assets/b031f7a7-4e58-43bf-b26d-3821599781de" />
+
+### Geçmiş Dashboard
+
+<img width="900" alt="Geçmiş Dashboard" src="https://github.com/user-attachments/assets/92d5e01e-b7a0-4fdf-ad01-2d3377062c33" />
+
+---
 
 ## Teknoloji Stack
 
@@ -355,3 +366,7 @@ Bu proje bir bitirme projesi kapsamında geliştirilmektedir. Lisans bilgisi pro
 
 ---
 
+## Modül Dokümanları
+
+- [`CLAUDE.md`](CLAUDE.md) — Proje kök planı (mimari + sprint yapısı)
+- [`src/analysis/deadlift/CLAUDE.md`](src/analysis/deadlift/CLAUDE.md) — Deadlift pipeline detayı (8 katman)
